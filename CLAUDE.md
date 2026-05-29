@@ -8,9 +8,10 @@ The hub injects these globals into every app at runtime:
 
 ```js
 const CONTEXT         = window.__CONTEXT_URL    ?? "";  // fetch family context (members, etc.)
-const DB              = window.__DB_URL         ?? "";  // SQL database endpoint
+const DB              = window.__DB_URL         ?? "";  // SQL database endpoint (storage:"db" apps only)
 const STORE           = window.__STORE_URL      ?? "";  // key-value store
 const FILES           = window.__FILES_URL      ?? "";  // file upload endpoint
+const DOCS            = window.__DOCS_URL       ?? "";  // hub-native document storage (see below)
 const CROSS_WRITE_URL = window.__CROSS_WRITE_URL ?? ""; // cross-app writes (hub-sdk crossWrite uses this)
 const APP_ID          = window.__APP_ID         ?? "my-app";
 const ME              = window.__CURRENT_MEMBER ?? null; // { id, name, role }
@@ -248,6 +249,53 @@ const uploadHtml = window.__FILES_URL ? `<div class="upload-area">…</div>` : "
 ```
 
 Allowed MIME types: `image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/heic`, `image/heif`, `application/pdf`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document` (docx), `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` (xlsx), `text/plain`, `text/markdown`.
+
+## Hub-native document storage
+
+For documents that should persist in the hub (survive app reinstall, appear in the household document library, respect encryption at rest), use `window.__DOCS_URL` instead of — or alongside — your own app DB.
+
+```js
+const DOCS = window.__DOCS_URL ?? "";
+```
+
+**Create** — POST a document record. `fileKey` is the ID returned by `files.upload()`.
+
+```js
+const { id } = await fetch(DOCS, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    title:    file.name,           // required
+    category: "home",              // required: medical | legal | home | financial | other
+    fileKey:  uploadResult.id,     // from files.upload()
+    mimeType: file.type,
+    sizeBytes: file.size,
+    sourceId: itemId,              // optional: link to your own entity (e.g. a maintenance item)
+    folder:   "Warranties",        // optional: freeform grouping label
+    sharedWith: ["everyone"],      // optional: [] = owner-only, ["everyone"] = whole household
+  }),
+}).then(r => r.json());
+```
+
+**List** — GET with optional filters:
+
+```js
+const docs = await fetch(`${DOCS}?sourceId=${itemId}`).then(r => r.json());
+// also: ?folder=Warranties
+```
+
+**Delete** — DELETE by document ID (also delete the associated file):
+
+```js
+await fetch(`${DOCS}/${docId}`, { method: "DELETE" });
+await files.delete(doc.fileKey).catch(() => {});
+```
+
+Hub documents are automatically deleted when the app is uninstalled. Storage usage counts against the app's `max_docs_bytes` limit (default 100 MB). Guard against demo mode:
+
+```js
+const uploadHtml = window.__DOCS_URL ? `<div class="upload-area">…</div>` : "";
+```
 
 ## Cross-app data sharing
 
