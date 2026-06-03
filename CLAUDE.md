@@ -107,22 +107,87 @@ async function logActivity(recordId, action, detail = "") {
 }
 ```
 
-## Parallelizing independent async calls
+## Optimistic local state updates
 
-After a main write, `logActivity`, `notify`, and a data reload are independent — run them together:
+After a main DB write succeeds, update local state immediately and re-render — do **not** reload from the database. A reload adds a full round-trip before the user sees any feedback.
 
 ```js
-await db(`INSERT INTO items ...`);
-await Promise.all([
-  logActivity(id, "created", `...`),
-  notify(`Title`, `Body`),
-  loadItems(),
-]);
-closeModal();
-render();
+async function createItem(fields) {
+  const id  = crypto.randomUUID();
+  const now = new Date().toISOString();
+
+  // 1. Write to DB
+  await db(`INSERT INTO items (id, title, created_at) VALUES (?, ?, ?)`, [id, fields.title, now]);
+
+  // 2. Update local state and render immediately
+  items = [{ id, title: fields.title, created_at: now, status: "active" }, ...items];
+  closeModal();
+  render();
+
+  // 3. Fire side effects in the background — don't block the UI
+  Promise.all([
+    logActivity(id, "created", `${ME.name} created "${fields.title}"`),
+    notify(`New item: ${fields.title}`, `${ME.name} added a new item.`),
+    fetch("/api/activity", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "item_created", actor: ME.name,
+        description: `${ME.name} created "${fields.title}"`,
+        metadata: { deepLink: { appId: APP_ID, params: { itemId: id } } } }),
+    }).catch(() => {}),
+  ]).catch(() => {});
+}
 ```
 
-Never chain them sequentially with separate `await` calls — it adds 2–3× unnecessary latency.
+For updates and deletes, patch the array in-place:
+
+```js
+// update
+const idx = items.findIndex(i => i.id === id);
+if (idx !== -1) items[idx] = { ...items[idx], title: fields.title, updated_at: now };
+
+// delete
+items = items.filter(i => i.id !== id);
+```
+
+Never re-fetch the full list from the DB just to reflect a change you already know about.
+
+## Member lookup map
+
+Build a `Map` once after `loadMembers()` completes. Use it everywhere instead of `.find()` — avoids an O(n) scan on every card render.
+
+```js
+let members   = [];
+let memberMap = new Map();
+
+async function loadMembers() {
+  if (!CONTEXT) {
+    members = [{ id: "demo-1", name: "Alex", role: "adult" }, /* … */];
+    memberMap = new Map(members.map(m => [m.id, m]));
+    return;
+  }
+  try {
+    const res = await fetch(`${CONTEXT}?keys=family.members`);
+    members = ((await res.json())["family.members"]) ?? [];
+  } catch { members = []; }
+  memberMap = new Map(members.map(m => [m.id, m]));
+}
+
+// Use map lookups everywhere — not .find()
+function memberName(id) { return memberMap.get(id)?.name ?? "Unknown"; }
+```
+
+## Parallelizing independent async calls
+
+`loadMembers()` and `loadItems()` are independent — run them in parallel at startup:
+
+```js
+(async () => {
+  await Promise.all([loadMembers(), loadItems()]);
+  render();
+  handleDeepLink();
+})();
+```
+
+Side effects like `logActivity`, `notify`, and `/api/activity` are also independent of each other — batch them in a fire-and-forget `Promise.all` after the UI has already updated (see optimistic local state above). Never chain them sequentially with separate `await` calls.
 
 ## Modal pattern
 
@@ -213,8 +278,7 @@ function handleDeepLink() {
 }
 
 (async () => {
-  await loadMembers();
-  await loadItems();
+  await Promise.all([loadMembers(), loadItems()]);
   handleDeepLink(); // after data is loaded so the item exists
   render();
 })();
