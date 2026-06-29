@@ -1416,6 +1416,21 @@ Column names are matched case-insensitively. The list is app-scoped — it does 
 - Free-text fields entered by the user (names, notes, titles, messages) — these should remain encrypted
 - Columns that are only ever read back whole and displayed, never filtered or sorted
 
+### `db_encryption`
+
+Use this manifest field only when the app's own D1 data does not need app-layer encryption at all:
+
+```json
+{
+  "storage": "db",
+  "db_encryption": "off"
+}
+```
+
+Omitting the field, or setting it to `"default"`, keeps the normal encrypt-on-write behavior. Setting `"off"` stores app-owned D1 values as plaintext; D1 is still encrypted at rest by Cloudflare, but raw D1 rows are readable to anyone with direct DB access. Use this for low-sensitivity apps where SQL filtering, sorting, indexes, and debugging matter more than app-layer confidentiality. Do not use it for messages, locations, health, finance, ballots, relationship data, documents metadata, or other private household content.
+
+Prefer `db_plaintext_columns` when only a few enum/date/lookup columns need to be queryable. Prefer `db_encryption: "off"` only when the entire app database is intentionally non-sensitive.
+
 **Backward compatibility:** Rows inserted before a column was added to `db_plaintext_columns` have their value stored encrypted. The hub decrypts them correctly on read (it checks each value before decrypting), so old and new rows coexist safely. SQL-level filters and ordering will only work for rows inserted after the column was declared plaintext.
 
 ## AI access (MCP)
