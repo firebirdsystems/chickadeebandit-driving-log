@@ -5,7 +5,7 @@ import { test, expect } from "vitest";
  *
  * Any client predicate that decides whether the current member may perform a
  * board/committee-only write (front of an `insert_privileged_only` or
- * `write_privileged_only` row policy with a `bypass_group_setting`) MUST mirror
+ * `write_privileged_only` row policy with `privileged_groups`) MUST mirror
  * the hub's server-side resolution exactly. The hub
  * (`memberInAppGroupSetting` in the chickadeebandit repo) treats a member as
  * privileged IFF:

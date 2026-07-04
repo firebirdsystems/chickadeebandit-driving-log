@@ -825,11 +825,11 @@ same restrictions.
   `{ "status_column": "status", "locked_values": ["adopted", "closed"] }`.
   Use it when a row should become immutable after a lifecycle state, such as
   board minutes after adoption, closed trivia rounds, or archived sheets. For
-  normal tables, `status_column` lives on that table. For `inherit_visibility`
-  and `owner_only_with_fk_check` child tables, it lives on the parent/FK table,
-  so child comments, votes, amendments, and records cannot be changed after the
-  parent locks. The status column must be plaintext: `status` is built in; list
-  custom enum columns in `db_plaintext_columns`.
+  normal tables, `status_column` lives on that table. For `inherit_visibility`,
+  `sealed_until`, and `owner_only_with_fk_check` child tables, it lives on the
+  parent/FK table, so child comments, votes, responses, amendments, and records
+  cannot be changed after the parent locks. The status column must be plaintext:
+  `status` is built in; list custom enum columns in `db_plaintext_columns`.
 - `column_read_acls` is a per-column **read-masking** modifier available on any
   policy kind with an owner column. Each listed column's value is returned as
   `null` unless the caller matches its `visible_to`
@@ -887,8 +887,8 @@ Read-all, **write-none via `/api/db`**. The only writer is `POST /run/{app}/api/
 
 - Non-adults: every query is restricted to rows where `member_column = <caller's member id>`; `INSERT` forces `member_column` to the caller.
 - Adults: unrestricted by default. Set `"adults_bypass": false` to restrict adults too (e.g. each adult only sees their own rows).
-- Add `"bypass_group_setting": { "settings_table": "settings", "settings_key": "board_group_id" }` to give members of a configurable hub group (e.g. "board", "admins") unrestricted access regardless of `adults_bypass`.
-- Add `"insert_privileged_only": true` (requires `bypass_group_setting`) to block `INSERT` for everyone except the privileged group — returns 403 for all other callers regardless of adult status. SELECT/UPDATE/DELETE are unaffected.
+- Add `"privileged_groups": [{ "settings_table": "settings", "settings_key": "board_group_id" }]` to give members of a configurable hub group (e.g. "board", "admins") unrestricted access regardless of `adults_bypass`. Add `"actions": ["insert"]` (any subset of `select`/`insert`/`update`/`delete`) to an entry to scope its privilege to those statement kinds, and list multiple entries for per-role power (treasurer inserts, secretary edits). See [`privileged_groups`](#privileged_groups) below.
+- Add `"insert_privileged_only": true` (requires a `privileged_groups` entry covering `"insert"`) to block `INSERT` for everyone except the privileged group — returns 403 for all other callers regardless of adult status. SELECT/UPDATE/DELETE are unaffected. `"delete_privileged_only": true` (requires `"delete"` coverage) does the same for DELETE.
 - Add `"endpoint_writes_only": true` to block all app-originated INSERT/UPDATE/DELETE while keeping owner-based read filtering in place. Use this when a table's data must only be written by a trusted hub endpoint (e.g. vote receipts created by `anonymous_responses`), but reads should still be filtered by ownership and `adults_bypass`:
 
 ```json
@@ -960,6 +960,9 @@ must stop accepting app-originated writes after a lifecycle state:
   checks the parent/FK row's `status_column` instead. This is how comments,
   votes, append-like children, or amendments become immutable after the parent
   board minute, round, sheet, or case closes.
+- On `sealed_until` child tables, `frozen_when` also checks the parent row. This
+  is the common async-game shape: responses stay private until the round closes,
+  then the closed round also freezes further edits.
 - The `status_column` must be plaintext. `status` is already plaintext; custom
   lifecycle columns such as `round_state` or `workflow_state` must be listed in
   `db_plaintext_columns` before they can be used by `frozen_when`.
@@ -992,8 +995,9 @@ top of the base policy's row filter.
     `writer_column`, or `member_read_column` by kind), so `endpoint_only`,
     `adult_only`, and `app_config` cannot use `"owner"`.
   - `"adult"` — `memberRole === "adult"`.
-  - `"privileged"` — a member of the policy's `bypass_group_setting` group (for
-    `inherit_visibility`, the **parent** table's group). Requires that group to be set.
+  - `"privileged"` — a member of a `privileged_groups` entry covering `"select"`
+    (for `inherit_visibility`, the **parent** table's groups). Masking is a read
+    concept, so select privilege is what counts. Requires such a group to be set.
 - **Adults get no implicit bypass.** `visible_to: ["owner"]` hides the column from
   adults too — only the row owner (and trusted hub endpoints) see it. List
   `["owner", "adult"]` if adults should also see it.
@@ -1039,7 +1043,7 @@ a transaction against another member's bank by guessing its id.
   "everyone_values": ["everyone"],
   "adult_values": ["adults", "everyone"],
   "write_owner_only": false,
-  "bypass_group_setting": { "settings_table": "settings", "settings_key": "committee_group_id" },
+  "privileged_groups": [{ "settings_table": "settings", "settings_key": "committee_group_id" }],
   "privileged_values": ["private"]
 }
 ```
@@ -1047,18 +1051,21 @@ a transaction against another member's bank by guessing its id.
 - `SELECT`: a row is visible if `member_column = <caller>` OR
   `visibility_column` is in `everyone_values` (plus `adult_values` if the
   caller is an adult, plus `privileged_values` if the caller is privileged
-  via `bypass_group_setting`).
-- `UPDATE`/`DELETE`: privileged callers can always write any row. Adults can
-  write any row **unless** `write_owner_only: true`, in which case adults
-  (like everyone else) are restricted to `member_column = <caller>`.
+  for `select` via `privileged_groups`).
+- `UPDATE`/`DELETE`: privileged callers (an entry covering the statement's
+  action) can always write any row. Adults can write any row **unless**
+  `write_owner_only: true`, in which case adults (like everyone else) are
+  restricted to `member_column = <caller>`.
 - `INSERT`: always forces `member_column` to the caller — you own what you create.
-- Add `"insert_privileged_only": true` (requires `bypass_group_setting`) to block `INSERT` for everyone except the privileged group — returns 403 for all other callers regardless of adult status. The column is still forced to the caller for privileged inserts. SELECT/UPDATE/DELETE are unaffected by this flag.
+- Add `"insert_privileged_only": true` (requires a `privileged_groups` entry covering `"insert"`) to block `INSERT` for everyone except the privileged group — returns 403 for all other callers regardless of adult status. The column is still forced to the caller for privileged inserts. SELECT/UPDATE/DELETE are unaffected by this flag.
 - Add `"write_visibility_scoped": true` for **writes that follow reads**: a
   caller may `UPDATE`/`DELETE` exactly the rows they can `SEE` (their own, plus
   rows whose `visibility_column` grants them read). This supersedes both
   `write_owner_only` and the default "any adult writes any row" — a member who
   cannot see a row can no longer blind-write or blind-delete it either.
-  Privileged members (`bypass_group_setting`) still write any row; non-adults
+  Privileged members (entry covering the write action) still write any row —
+  a select-only entry instead widens the rows such a member may co-edit,
+  since writes follow reads; non-adults
   remain bound by `delete_adult_only`/`update_forbidden_columns`. Use it for
   **collaboratively-edited, audience-scoped** tables — a group/committee working
   doc, a shared binder — where the whole visible audience co-edits but outsiders
@@ -1118,8 +1125,9 @@ they reference via foreign key:
 
 - `parent_table` (unprefixed) must itself have an `owner_only`,
   `owner_only_with_fk_check`, or `owner_or_visibility` row policy — its
-  visibility/ownership rules (and `bypass_group_setting`/`privileged_values`
-  if present) are reused for the child table.
+  visibility/ownership rules (and `privileged_groups`/`privileged_values`
+  if present, evaluated per the child statement's action) are reused for the
+  child table.
 - `SELECT`: a child row is visible iff its parent row (matched via
   `fk_column = parent.id`) is visible to the caller.
 - `INSERT`: forces `writer_column` to the caller, and rejects the insert
@@ -1132,13 +1140,14 @@ they reference via foreign key:
   callers, so a player cannot insert a move/question/guess when it is not their
   turn by POSTing raw SQL to `/api/db`.
 - `UPDATE`/`DELETE`: privileged callers (per the parent policy's
-  `bypass_group_setting`/adult-bypass) are unrestricted (e.g. cascade-delete
-  when the parent is deleted); everyone else is restricted to rows where
-  `writer_column = <caller>`.
+  `privileged_groups`/adult-bypass, for that action) are unrestricted (e.g.
+  cascade-delete when the parent is deleted); everyone else is restricted to
+  rows where `writer_column = <caller>`.
 - Add `"insert_privileged_only": true` to block `INSERT` for everyone except
-  the privileged group inherited from the parent policy's `bypass_group_setting`.
-  Returns 403 for all other callers. Useful when only a designated group should
-  be able to create child rows (e.g. only the board uploads document versions).
+  the privileged group inherited from the parent policy's `privileged_groups`
+  (entries covering `"insert"`). Returns 403 for all other callers. Useful when
+  only a designated group should be able to create child rows (e.g. only the
+  board uploads document versions).
 
 Examples: architectural-review `votes`/`comments` inherit from `requests`;
 officer-elections-style "any visible member can check off a group streak"
@@ -1155,6 +1164,53 @@ policy. This covers async turn rotation for Word Game / 20 Questions / Draw &
 Guess-style apps without a bespoke server endpoint per game. Pair it with
 `unique_per_member` when the child table also needs one attributed row per round
 or turn.
+
+#### `sealed_until` — owners see their response until the parent closes, then everyone sees
+
+Use `sealed_until` for attributed, non-anonymous child rows that should be hidden
+from non-owners until a parent row reaches a release state. It is the N-party
+version of "mutual reveal": each member can see and edit their own response while
+the round/session is open; once the parent says `status = "closed"`, every member
+can read all responses.
+
+```json
+{
+  "kind": "sealed_until",
+  "fk_column": "round_id",
+  "parent_table": "rounds",
+  "writer_column": "member_id",
+  "parent_status_column": "status",
+  "visible_parent_status_values": ["closed"],
+  "unique_per_member": {
+    "member_column": "member_id",
+    "scope_columns": ["round_id"]
+  },
+  "frozen_when": {
+    "status_column": "status",
+    "locked_values": ["closed"]
+  }
+}
+```
+
+- `SELECT`: the caller sees rows where `writer_column = <caller>`, plus any rows
+  whose parent row (matched by `fk_column = parent.id`) has
+  `parent_status_column` in `visible_parent_status_values`.
+- `INSERT`: forces `writer_column` to the caller.
+- `UPDATE`/`DELETE`: remains writer-scoped. Add `frozen_when` so nobody can edit
+  or delete responses after the parent round closes.
+- `parent_status_column` must be plaintext. `status` is built in; custom release
+  columns such as `round_state` must be listed in `db_plaintext_columns`.
+- Pair with `unique_per_member` for "one answer/guess/bid per member per round."
+  This is still attributed data, so do not use it for anonymous surveys or secret
+  ballots; use `anonymous_responses` / `anonymous_ballot` when the response row
+  must not identify the member.
+
+Examples: Family Trivia answers, Word Game guesses, 20 Questions answers, Draw &
+Guess submissions, and sealed HOA vendor bids. Parent rows are usually
+`adult_writable`, `owner_or_visibility`, or another policy appropriate to who may
+create/close rounds. If the app also has turn-scoped moves/questions, use
+`inherit_visibility` with `insert_only_by_parent_column_member` for those action
+rows and `sealed_until` for the final per-member responses.
 
 ### Choosing a policy kind
 
@@ -1175,14 +1231,17 @@ or turn.
 | Shared between exactly two partnered members | `couple_scoped` |
 | Votes/comments/logs/check-offs whose visibility should match a parent record | `inherit_visibility` |
 | Turn-based child rows where only the current player may INSERT (moves, questions, guesses) | `inherit_visibility` with `insert_only_by_parent_column_member: "current_turn_member_id"` |
+| Attributed responses hidden from everyone except the owner until the parent closes | `sealed_until` with `visible_parent_status_values: ["closed"]`; usually add `unique_per_member` and `frozen_when` |
 | Anonymous data with no per-row ownership at all (e.g. cast ballots, raw anonymous responses) | `endpoint_only` with `read:"none"` — pair with a receipt table under `owner_only` + `adults_bypass:false` + `member_can_update:false` + `endpoint_writes_only:true`; use `anonymous_responses` or `anonymous_ballot` manifest mechanisms to write both atomically |
 | Everyone can read, but only a specific group may INSERT (e.g. board-managed docs) | `owner_or_visibility` with `everyone_values`, `write_owner_only: true`, and `insert_privileged_only: true` |
 | Child rows where only a privileged group may create them (e.g. document versions) | `inherit_visibility` with `insert_privileged_only: true` |
 
-### `bypass_group_setting`
+### `privileged_groups`
 
 ```json
-"bypass_group_setting": { "settings_table": "settings", "settings_key": "board_group_id" }
+"privileged_groups": [
+  { "settings_table": "settings", "settings_key": "board_group_id" }
+]
 ```
 
 Grants unrestricted access to members of a hub group whose id is stored in
@@ -1193,11 +1252,45 @@ picks a hub group (e.g. "Board", "Committee") to designate as privileged.
 If the setting is unset, no one gets this bypass — only the
 `adults_bypass`/`adult_values` rules apply.
 
+Available on `owner_only`, `owner_only_with_fk_check`, and
+`owner_or_visibility` (and inherited by `inherit_visibility` children from
+their parent). Each entry may scope its privilege with `"actions"`, a
+non-empty subset of `"select"`/`"insert"`/`"update"`/`"delete"`; omitting
+`actions` grants all four. List multiple entries for per-role power — the
+caller is privileged for a statement when they belong to **any** entry whose
+actions cover that statement's kind:
+
+```json
+"privileged_groups": [
+  { "settings_table": "settings", "settings_key": "treasurer_group_id", "actions": ["insert"] },
+  { "settings_table": "settings", "settings_key": "secretary_group_id", "actions": ["update", "delete"] }
+]
+```
+
+Rules to know:
+
+- **Visibility follows `select`.** Anything that widens what a caller can
+  *see* — `privileged_values`, `column_read_acls` `"privileged"`, the parent
+  visibility used by `inherit_visibility`, and the row set writable under
+  `write_visibility_scoped` (writes follow reads) — uses `"select"` privilege,
+  never the write actions. An insert-only entry grants no extra read access.
+- **Gate flags need coverage.** `insert_privileged_only` /
+  `delete_privileged_only` require an entry covering that action;
+  `write_privileged_only` requires coverage of `insert`, `update`, **and**
+  `delete`. Otherwise the manifest is rejected (the flag would lock everyone
+  out).
+- **Legacy shape.** `"bypass_group_setting": { settings_table, settings_key }`
+  is still accepted and is exactly equivalent to one `privileged_groups` entry
+  with no `actions`. Declaring both on one policy is a manifest validation
+  error — use `privileged_groups` in new apps.
+
 ### Verifying your row_policies
 
 `node build.mjs` runs manifest validation, including `row_policies` — it
 will catch invalid `kind`, missing required fields, bad identifiers, and
-`inherit_visibility.parent_table` not having a compatible parent policy.
+`inherit_visibility.parent_table` not having a compatible parent policy. It
+also verifies `sealed_until.parent_status_column` is plaintext and that the
+declared parent table has a row policy.
 This catches schema mistakes before install, but does **not** test the
 actual SQL rewriting — when in doubt, check
 `packages/hub/__tests__/unit/cloudflare-row-policy.test.ts` in the hub repo
@@ -1701,10 +1794,10 @@ function canManage(item, me) {
 #### Privileged-group gates: no "all adults" fallback when unconfigured
 
 The same trap bites harder for `insert_privileged_only` / `write_privileged_only`
-tables gated by a `bypass_group_setting` (board/committee group). The hub treats a
+tables gated by `privileged_groups` (board/committee group). The hub treats a
 member as privileged **only** when the group is configured, still exists, and the
 member is in it — there is **no adult fallback** when the setting is unset or
-points at a deleted group (`bypass_group_setting`: *"If the setting is unset, no
+points at a deleted group (`privileged_groups`: *"If the setting is unset, no
 one gets this bypass"*). A client gate that returns `true` for adults when no
 group is configured shows write UI the hub then 403s on every INSERT:
 
