@@ -3,67 +3,580 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>My App</title>
+  <title>Potluck</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f9fafb; color: #111827; min-height: 100vh; }
-    .container { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
-    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 8px; }
-    .subtitle { color: #6b7280; font-size: 0.9rem; margin-bottom: 24px; }
-    .card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 12px; }
-    button { background: #111827; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
-    button:hover { background: #374151; }
-    #status { margin-top: 16px; font-size: 0.85rem; color: #6b7280; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: var(--hub-bg, #f9fafb);
+      --surface: var(--hub-surface, #ffffff);
+      --border: var(--hub-border, #e5e7eb);
+      --border-mid: var(--hub-border, #d1d5db);
+      --text: var(--hub-text, #111827);
+      --muted: var(--hub-text-muted, #6b7280);
+      --accent: var(--hub-primary, #111827);
+      --accent-hover: var(--hub-primary-hover, #374151);
+      --accent-fg: var(--hub-primary-fg, #ffffff);
+      --radius: var(--hub-radius, 8px);
+      --green: #047857;
+      --green-soft: #d1fae5;
+      --amber: #b45309;
+      --amber-soft: #fef3c7;
+      --red: #b91c1c;
+      --red-soft: #fee2e2;
+      --blue-soft: #dbeafe;
+      --shadow: 0 1px 3px rgba(15, 23, 42, .07);
+    }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--hub-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+      font-size: var(--hub-font-size, 15px);
+      line-height: 1.5;
+    }
+    .app { max-width: 820px; margin: 0 auto; padding: 16px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    h1 { font-size: 1.35rem; line-height: 1.2; }
+    h2 { font-size: 1rem; margin-bottom: 10px; }
+    .muted { color: var(--muted); }
+    .tiny { font-size: .78rem; }
+    .stack { display: grid; gap: 12px; }
+    .grid { display: grid; gap: 12px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .event-card { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+    .event-card:hover { border-color: var(--border-mid); box-shadow: 0 5px 14px rgba(15, 23, 42, .08); }
+    .event-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .event-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .event-title { font-weight: 750; font-size: 1rem; }
+    .event-meta { margin-top: 3px; color: var(--muted); font-size: .82rem; }
+    .progress { height: 8px; overflow: hidden; border-radius: 999px; background: #eef2f7; margin-top: 10px; }
+    .progress > span { display: block; height: 100%; background: var(--green); border-radius: 999px; }
+    .pill {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 24px; padding: 2px 8px; border-radius: 999px;
+      background: #f1f5f9; color: var(--muted); font-size: .74rem; font-weight: 700; white-space: nowrap;
+    }
+    .pill.good { background: var(--green-soft); color: var(--green); }
+    .pill.warn { background: var(--amber-soft); color: var(--amber); }
+    .pill.info { background: var(--blue-soft); color: #1d4ed8; }
+    .tabs { display: flex; gap: 4px; background: var(--border); padding: 3px; border-radius: 10px; margin-bottom: 14px; }
+    .tab { flex: 1; border: 0; border-radius: 8px; background: transparent; color: var(--muted); padding: 7px; font-weight: 700; cursor: pointer; }
+    .tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+    .section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin: 6px 2px 10px;
+    }
+    .section-head h2 { margin-bottom: 0; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      border: 1px solid transparent; border-radius: 8px; padding: 8px 12px;
+      font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer;
+      min-height: 38px; background: var(--accent); color: var(--accent-fg);
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: .48; cursor: default; }
+    .btn-ghost { background: transparent; color: var(--text); border-color: var(--border-mid); }
+    .btn-ghost:hover { background: #f8fafc; }
+    .btn-danger { background: var(--red-soft); color: var(--red); border-color: transparent; }
+    .btn-danger:hover { background: #fecaca; }
+    .btn-quiet-danger {
+      min-height: 28px; padding: 3px 6px; background: transparent; color: var(--muted);
+      border: 0; font-size: .76rem; font-weight: 700;
+    }
+    .btn-quiet-danger:hover { background: var(--red-soft); color: var(--red); }
+    .btn-sm { min-height: 31px; padding: 5px 9px; font-size: .78rem; }
+    .back { margin-bottom: 10px; }
+    .slot {
+      display: grid; gap: 10px; padding: 12px 0; border-top: 1px solid var(--border);
+    }
+    .slot:first-child { border-top: 0; padding-top: 0; }
+    .slot-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .slot-name { font-weight: 750; }
+    .claims { display: flex; flex-wrap: wrap; gap: 6px; }
+    .claim-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #f8fafc; border: 1px solid var(--border);
+      border-radius: 999px; padding: 3px 8px 3px 4px; font-size: .78rem;
+    }
+    .avatar {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: white; font-size: .72rem; font-weight: 800; background: #0f766e;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .form { display: grid; gap: 10px; }
+    .field { display: grid; gap: 4px; }
+    label { font-size: .76rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 800; }
+    input, textarea {
+      width: 100%; border: 1.5px solid var(--border-mid); border-radius: 8px;
+      padding: 9px 11px; font: inherit; background: var(--surface); color: var(--text);
+    }
+    textarea { min-height: 72px; resize: vertical; }
+    input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    .slot-builder { display: grid; gap: 8px; }
+    .slot-row { display: grid; grid-template-columns: 1fr 74px auto; gap: 8px; align-items: center; }
+    .empty, .loading { color: var(--muted); text-align: center; padding: 32px 16px; }
+    .error { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
+    .notice { background: var(--amber-soft); color: var(--amber); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
+    @media (min-width: 700px) {
+      .grid.two { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      .topbar, .event-head, .slot-top { align-items: stretch; flex-direction: column; }
+      .slot-row { grid-template-columns: 1fr; }
+      .actions .btn { flex: 1; }
+    }
   </style>
+  <base href="/run/potluck/">
 </head>
 <body>
-  <div class="container">
-    <h1>My App</h1>
-    <p class="subtitle">Running inside Chickadee Bandit</p>
+<div class="app">
+  <div id="root" class="loading">Loading...</div>
+</div>
 
-    <div class="card">
-      <p id="members-list">Loading family members…</p>
-    </div>
+<script type="module">
+import { esc, isAdult, memberColor, initial, hubConfirm } from "/hub-sdk.js";
 
-    <button onclick="refresh()">Refresh</button>
-    <p id="status"></p>
-  </div>
+const CONTEXT = window.__CONTEXT_URL ?? "";
+const DB = window.__DB_URL ?? "";
+const HUB_MEMBER = window.__CURRENT_MEMBER ?? null;
 
-  <script>
-    // Chickadee Bandit injects these globals at runtime:
-    //   window.__CONTEXT_URL  → fetch family data (family.members, family.calendar, etc.)
-    //   window.__STORE_URL    → GET/POST per-app key-value store
-    //   window.__APP_ID       → this app's id string
-    const CONTEXT = window.__CONTEXT_URL ?? "/api";
-    const STORE   = window.__STORE_URL   ?? "";
+let members = [];
+let currentMember = null;
+let events = [];
+let slots = [];
+let claims = [];
+let selectedEventId = null;
+let view = "upcoming";
+let error = "";
+let notice = "";
+let draftSlots = [
+  { name: "Turkey", capacity: 1 },
+  { name: "Sides", capacity: 4 },
+  { name: "Desserts", capacity: 2 },
+];
 
-    async function load() {
-      try {
-        const res = await fetch(`${CONTEXT}?keys=family.members`);
-        const ctx = await res.json();
-        const members = ctx["family.members"] ?? [];
-        const list = document.getElementById("members-list");
-        if (!Array.isArray(members) || members.length === 0) {
-          list.textContent = "No family members found.";
-          return;
-        }
-        list.innerHTML = members.map(m =>
-          `<div style="padding:6px 0;border-bottom:1px solid #f3f4f6;">
-            <strong>${m.name}</strong>
-            <span style="color:#9ca3af;font-size:0.8rem;margin-left:8px;">${m.role}</span>
-           </div>`
-        ).join("");
-      } catch (e) {
-        document.getElementById("status").textContent = `Error: ${e.message}`;
+function nowIso() { return new Date().toISOString(); }
+function uid(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
+function today() { return new Date().toISOString().slice(0, 10); }
+function fmtDate(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" })
+    .format(new Date(`${value}T12:00:00`));
+}
+function memberById(id) { return members.find(m => m.id === id) ?? null; }
+function canCreate() { return isAdult(currentMember); }
+function selectedEvent() { return events.find(e => e.id === selectedEventId) ?? null; }
+function eventSlots(eventId) { return slots.filter(s => s.event_id === eventId).sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)); }
+function slotClaims(slotId) { return claims.filter(c => c.slot_id === slotId).sort((a, b) => a.claimed_at.localeCompare(b.claimed_at)); }
+function myClaim(slotId) { return claims.find(c => c.slot_id === slotId && c.member_id === currentMember?.id) ?? null; }
+function claimedCount(slotId) { return slotClaims(slotId).length; }
+function eventTotals(eventId) {
+  const ss = eventSlots(eventId);
+  const capacity = ss.reduce((sum, s) => sum + Number(s.capacity || 0), 0);
+  const claimed = ss.reduce((sum, s) => sum + claimedCount(s.id), 0);
+  return { claimed, capacity, pct: capacity ? Math.min(100, Math.round((claimed / capacity) * 100)) : 0 };
+}
+
+async function dbq(sql, params = []) {
+  if (!DB) return { rows: [] };
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sql, params }),
+  });
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  return json;
+}
+
+async function loadMembers() {
+  if (!CONTEXT) {
+    members = [
+      { id: "demo-1", name: "Alex", role: "adult" },
+      { id: "demo-2", name: "Jordan", role: "adult" },
+      { id: "demo-3", name: "Casey", role: "child" },
+      { id: "demo-4", name: "Riley", role: "child" },
+    ];
+  } else {
+    const res = await fetch(`${CONTEXT}?keys=family.members`);
+    members = ((await res.json())["family.members"]) ?? [];
+  }
+  currentMember = HUB_MEMBER ?? members[0] ?? { id: "guest", name: "Guest", role: "adult" };
+}
+
+async function seedDemo() {
+  if (DB) return;
+  const eventId = "demo-thanksgiving";
+  events = [{
+    id: eventId, title: "Thanksgiving Dinner", date: today(), location: "Home",
+    notes: "Claim what you are bringing so the table balances out.",
+    created_by_id: "demo-1", created_by_name: "Alex", created_at: nowIso(), archived: 0,
+  }];
+  slots = [
+    { id: "slot-turkey", event_id: eventId, name: "Turkey", capacity: 1, sort_order: 0 },
+    { id: "slot-sides", event_id: eventId, name: "Sides", capacity: 4, sort_order: 1 },
+    { id: "slot-desserts", event_id: eventId, name: "Desserts", capacity: 2, sort_order: 2 },
+  ];
+  claims = [{ id: "claim-1", event_id: eventId, slot_id: "slot-desserts", member_id: "demo-2", member_name: "Jordan", note: "Apple pie", claimed_at: nowIso() }];
+}
+
+async function loadData() {
+  if (!DB) { await seedDemo(); return; }
+  const [eventRows, slotRows, claimRows] = await Promise.all([
+    dbq("SELECT * FROM app_potluck__events WHERE archived = 0 ORDER BY date ASC, created_at ASC"),
+    dbq("SELECT * FROM app_potluck__slots ORDER BY sort_order ASC, name ASC"),
+    dbq("SELECT * FROM app_potluck__claims ORDER BY claimed_at ASC"),
+  ]);
+  events = eventRows.rows.map(e => ({ ...e, archived: !!e.archived }));
+  slots = slotRows.rows;
+  claims = claimRows.rows;
+}
+
+async function refresh() {
+  clearMessages();
+  try {
+    await loadMembers();
+    await loadData();
+    if (selectedEventId && !events.some(e => e.id === selectedEventId)) selectedEventId = null;
+    render();
+  } catch (e) {
+    error = e.message;
+    render();
+  }
+}
+
+function clearMessages() { error = ""; notice = ""; }
+function showError(message) { error = message; notice = ""; render(); }
+function showNotice(message) { notice = message; error = ""; render(); }
+
+async function createEvent(form) {
+  if (!canCreate()) return showError("Only adults and leadership can create potlucks.");
+  const title = form.title.value.trim();
+  const date = form.date.value;
+  const location = form.location.value.trim();
+  const notes = form.notes.value.trim();
+  const cleanSlots = draftSlots
+    .map((s, index) => ({ ...s, name: s.name.trim(), capacity: Math.max(1, Number(s.capacity) || 1), sort_order: index }))
+    .filter(s => s.name);
+  if (!title || !date || cleanSlots.length === 0) return showError("Add a title, date, and at least one dish slot.");
+
+  const event = {
+    id: uid("potluck"), title, date, location, notes,
+    created_by_id: currentMember.id, created_by_name: currentMember.name, created_at: nowIso(), archived: 0,
+  };
+  const eventSlotsToInsert = cleanSlots.map(s => ({ ...s, id: uid("slot"), event_id: event.id, created_at: nowIso() }));
+
+  try {
+    if (DB) {
+      await dbq(
+        `INSERT INTO app_potluck__events (id, title, date, location, notes, created_by_id, created_by_name, created_at, archived)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+        [event.id, event.title, event.date, event.location, event.notes, event.created_by_id, event.created_by_name, event.created_at]
+      );
+      for (const s of eventSlotsToInsert) {
+        await dbq(
+          `INSERT INTO app_potluck__slots (id, event_id, name, capacity, sort_order, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [s.id, s.event_id, s.name, s.capacity, s.sort_order, s.created_at]
+        );
       }
     }
+    events = [...events, event].sort((a, b) => a.date.localeCompare(b.date));
+    slots = [...slots, ...eventSlotsToInsert];
+    selectedEventId = event.id;
+    view = "upcoming";
+    showNotice("Potluck created.");
+  } catch (e) {
+    showError(e.message);
+  }
+}
 
-    function refresh() {
-      document.getElementById("status").textContent = "Refreshing…";
-      load().then(() => { document.getElementById("status").textContent = ""; });
+async function claimSlot(slotId) {
+  const slot = slots.find(s => s.id === slotId);
+  if (!slot || !currentMember) return false;
+  if (myClaim(slotId)) { showError("You already claimed this slot."); return false; }
+  if (claimedCount(slotId) >= Number(slot.capacity)) { showError("That slot is already full."); return false; }
+  const claim = {
+    id: uid("claim"), event_id: slot.event_id, slot_id: slot.id,
+    member_id: currentMember.id, member_name: currentMember.name, note: "", claimed_at: nowIso(),
+  };
+  try {
+    if (DB) {
+      const result = await dbq(
+        `INSERT INTO app_potluck__claims (id, event_id, slot_id, member_id, member_name, note, claimed_at)
+         SELECT ?, ?, ?, ?, ?, ?, ?
+         WHERE (SELECT COUNT(*) FROM app_potluck__claims WHERE slot_id = ?) <
+               (SELECT capacity FROM app_potluck__slots WHERE id = ?)
+           AND NOT EXISTS (
+             SELECT 1 FROM app_potluck__claims WHERE slot_id = ? AND member_id = ?
+           )`,
+        [claim.id, claim.event_id, claim.slot_id, claim.member_id, claim.member_name, claim.note, claim.claimed_at, slot.id, slot.id, slot.id, currentMember.id]
+      );
+      if (result.meta?.changes === 0) throw new Error("Someone just claimed the last opening. Refreshing the list.");
     }
+    claims = [...claims, claim];
+    showNotice(`Claimed ${slot.name}.`);
+    return true;
+  } catch (e) {
+    await loadData().catch(() => {});
+    showError(e.message);
+    return false;
+  }
+}
 
-    load();
-  </script>
+async function releaseClaim(claimId) {
+  const claim = claims.find(c => c.id === claimId);
+  if (!claim) return false;
+  const allowed = claim.member_id === currentMember?.id || canCreate();
+  if (!allowed) { showError("You can only release your own claim."); return false; }
+  try {
+    if (DB) await dbq("DELETE FROM app_potluck__claims WHERE id = ?", [claimId]);
+    claims = claims.filter(c => c.id !== claimId);
+    showNotice("Dish released.");
+    return true;
+  } catch (e) {
+    showError(e.message);
+    return false;
+  }
+}
+
+async function swapTo(slotId) {
+  const eventId = selectedEventId;
+  const own = claims.find(c => c.event_id === eventId && c.member_id === currentMember?.id);
+  if (!own) return claimSlot(slotId);
+  if (own.slot_id === slotId) return;
+  const ok = await hubConfirm("Move your claim to this dish slot?");
+  if (!ok) return;
+  const oldClaimId = own.id;
+  const claimedNewSlot = await claimSlot(slotId);
+  if (claimedNewSlot) await releaseClaim(oldClaimId);
+}
+
+async function archiveEvent(eventId) {
+  if (!canCreate()) return showError("Only adults and leadership can archive potlucks.");
+  const ok = await hubConfirm({
+    message: "Archive this potluck?",
+    description: "It will be hidden from the active gathering list. Existing claims are preserved.",
+    confirmLabel: "Archive",
+    destructive: true,
+  });
+  if (!ok) return;
+  try {
+    if (DB) await dbq("UPDATE app_potluck__events SET archived = 1 WHERE id = ?", [eventId]);
+    events = events.filter(e => e.id !== eventId);
+    selectedEventId = null;
+    showNotice("Potluck archived.");
+  } catch (e) {
+    showError(e.message);
+  }
+}
+
+function addDraftSlot() {
+  draftSlots.push({ name: "", capacity: 1 });
+  render();
+}
+function updateDraft(index, field, value) {
+  draftSlots[index][field] = field === "capacity" ? Math.max(1, Number(value) || 1) : value;
+}
+function removeDraft(index) {
+  draftSlots.splice(index, 1);
+  if (!draftSlots.length) addDraftSlot();
+  render();
+}
+
+function renderMessages() {
+  return `${error ? `<div class="error">${esc(error)}</div>` : ""}${notice ? `<div class="notice">${esc(notice)}</div>` : ""}`;
+}
+
+function renderEventCard(event) {
+  const totals = eventTotals(event.id);
+  const statusClass = totals.capacity && totals.claimed >= totals.capacity ? "good" : totals.claimed ? "info" : "warn";
+  return `
+    <article class="card event-card" data-open-event="${esc(event.id)}">
+      <div class="event-head">
+        <div>
+          <div class="event-title">${esc(event.title)}</div>
+          <div class="event-meta">${esc(fmtDate(event.date))}${event.location ? ` · ${esc(event.location)}` : ""}</div>
+        </div>
+        <span class="pill ${statusClass}">${totals.claimed}/${totals.capacity} claimed</span>
+      </div>
+      ${event.notes ? `<p class="event-meta">${esc(event.notes)}</p>` : ""}
+      <div class="progress" aria-hidden="true"><span style="width:${totals.pct}%"></span></div>
+    </article>
+  `;
+}
+
+function renderList() {
+  const visible = [...events].sort((a, b) => a.date.localeCompare(b.date));
+  return `
+    <div class="topbar">
+      <div>
+        <h1>Potluck</h1>
+        <p class="muted tiny">Claim dishes without double-booking dessert.</p>
+      </div>
+      ${canCreate() ? `<button class="btn" data-view-create>Create</button>` : ""}
+    </div>
+    ${renderMessages()}
+    <div class="section-head">
+      <h2>Gatherings</h2>
+      <button class="btn btn-ghost btn-sm" type="button" data-refresh>Refresh</button>
+    </div>
+    <section class="stack">
+      ${visible.length ? visible.map(renderEventCard).join("") : `<div class="card empty">No potlucks yet.</div>`}
+    </section>
+  `;
+}
+
+function renderDetail() {
+  const event = selectedEvent();
+  if (!event) return renderList();
+  const totals = eventTotals(event.id);
+  const ownClaims = claims.filter(c => c.event_id === event.id && c.member_id === currentMember?.id);
+  return `
+    <button class="btn btn-ghost btn-sm back" data-back>Back</button>
+    ${renderMessages()}
+    <section class="card stack">
+      <div class="event-head">
+        <div>
+          <h1>${esc(event.title)}</h1>
+          <p class="muted">${esc(fmtDate(event.date))}${event.location ? ` · ${esc(event.location)}` : ""}</p>
+        </div>
+        <div class="event-tools">
+          <span class="pill ${totals.claimed >= totals.capacity ? "good" : "info"}">${totals.claimed}/${totals.capacity} spots</span>
+          ${canCreate() ? `<button class="btn btn-quiet-danger" data-archive="${esc(event.id)}">Archive</button>` : ""}
+        </div>
+      </div>
+      ${event.notes ? `<p>${esc(event.notes)}</p>` : ""}
+      ${ownClaims.length ? `<p class="muted tiny">You are bringing ${ownClaims.map(c => esc(slots.find(s => s.id === c.slot_id)?.name ?? "a dish")).join(", ")}.</p>` : ""}
+    </section>
+    <section class="card">
+      <h2>Dish slots</h2>
+      ${eventSlots(event.id).map(renderSlot).join("") || `<div class="empty">No dish slots yet.</div>`}
+    </section>
+  `;
+}
+
+function renderSlot(slot) {
+  const sc = slotClaims(slot.id);
+  const mine = myClaim(slot.id);
+  const full = sc.length >= Number(slot.capacity);
+  const hasAnyMine = claims.some(c => c.event_id === slot.event_id && c.member_id === currentMember?.id);
+  const claimButton = mine
+    ? `<button class="btn btn-danger btn-sm" data-release="${esc(mine.id)}">Release</button>`
+    : `<button class="btn btn-sm" data-claim="${esc(slot.id)}" ${full ? "disabled" : ""}>${hasAnyMine ? "Swap here" : "Claim"}</button>`;
+  return `
+    <div class="slot">
+      <div class="slot-top">
+        <div>
+          <div class="slot-name">${esc(slot.name)}</div>
+        </div>
+        <span class="pill ${full ? "good" : "warn"}">${sc.length}/${slot.capacity}</span>
+      </div>
+      <div class="claims">
+        ${sc.length ? sc.map(renderClaim).join("") : `<span class="muted tiny">Open spot</span>`}
+      </div>
+      <div class="actions">${mine ? claimButton : claimButton.replace("data-claim", hasAnyMine ? "data-swap" : "data-claim")}</div>
+    </div>
+  `;
+}
+
+function renderClaim(claim) {
+  const member = memberById(claim.member_id);
+  const color = memberColor(member?.id ?? claim.member_id);
+  return `
+    <span class="claim-chip">
+      <span class="avatar" style="background:${esc(color)}">${esc(initial(claim.member_name))}</span>
+      ${esc(claim.member_name)}
+    </span>
+  `;
+}
+
+function renderCreate() {
+  return `
+    <button class="btn btn-ghost btn-sm back" data-view-list>Back</button>
+    <div class="topbar"><h1>Create Potluck</h1></div>
+    ${renderMessages()}
+    <form class="card form" id="create-form">
+      <div class="grid two">
+        <div class="field">
+          <label for="title">Gathering</label>
+          <input id="title" name="title" value="Holiday Dinner" required />
+        </div>
+        <div class="field">
+          <label for="date">Date</label>
+          <input id="date" name="date" type="date" value="${today()}" required />
+        </div>
+      </div>
+      <div class="field">
+        <label for="location">Location</label>
+        <input id="location" name="location" placeholder="Home, clubhouse, chapter hall" />
+      </div>
+      <div class="field">
+        <label for="notes">Notes</label>
+        <textarea id="notes" name="notes" placeholder="Theme, headcount, arrival window"></textarea>
+      </div>
+      <div class="field">
+        <label>Dish slots</label>
+        <div class="slot-builder">
+          ${draftSlots.map((s, i) => `
+            <div class="slot-row">
+              <input data-draft="${i}" data-field="name" value="${esc(s.name)}" placeholder="Dish category" />
+              <input data-draft="${i}" data-field="capacity" type="number" min="1" value="${esc(String(s.capacity))}" aria-label="Capacity" />
+              <button class="btn btn-ghost btn-sm" type="button" data-remove-draft="${i}">Remove</button>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost" type="button" data-add-slot>Add slot</button>
+        <button class="btn" type="submit">Create potluck</button>
+      </div>
+    </form>
+  `;
+}
+
+function render() {
+  const root = document.getElementById("root");
+  root.className = "app";
+  root.innerHTML = selectedEventId ? renderDetail() : view === "create" ? renderCreate() : renderList();
+}
+
+document.addEventListener("click", (event) => {
+  const target = event.target.closest("button, [data-open-event]");
+  if (!target) return;
+  const openId = target.getAttribute("data-open-event");
+  if (openId) { selectedEventId = openId; clearMessages(); render(); return; }
+  if (target.matches("[data-back], [data-view-list]")) { selectedEventId = null; view = "upcoming"; clearMessages(); render(); return; }
+  if (target.matches("[data-view-create]")) { view = "create"; clearMessages(); render(); return; }
+  if (target.matches("[data-refresh]")) { refresh(); return; }
+  if (target.matches("[data-add-slot]")) { addDraftSlot(); return; }
+  if (target.hasAttribute("data-remove-draft")) { removeDraft(Number(target.getAttribute("data-remove-draft"))); return; }
+  if (target.hasAttribute("data-claim")) { claimSlot(target.getAttribute("data-claim")); return; }
+  if (target.hasAttribute("data-swap")) { swapTo(target.getAttribute("data-swap")); return; }
+  if (target.hasAttribute("data-release")) { releaseClaim(target.getAttribute("data-release")); return; }
+  if (target.hasAttribute("data-archive")) { archiveEvent(target.getAttribute("data-archive")); return; }
+});
+
+document.addEventListener("input", (event) => {
+  const input = event.target.closest("[data-draft]");
+  if (!input) return;
+  updateDraft(Number(input.getAttribute("data-draft")), input.getAttribute("data-field"), input.value);
+});
+
+document.addEventListener("submit", (event) => {
+  if (event.target.id !== "create-form") return;
+  event.preventDefault();
+  createEvent(event.target);
+});
+
+refresh();
+</script>
 </body>
 </html>

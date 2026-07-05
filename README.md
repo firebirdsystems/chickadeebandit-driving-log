@@ -1,23 +1,19 @@
-# Chickadee Bandit App Template
+# Potluck
 
-A starter template for building apps that install into [Chickadee Bandit](http://chickadeebandit.com).
-
-> **This repo is meant to be used as a GitHub template.** Click "Use this template" to create your own app repo.
+Dish sign-up for Chickadee Bandit gatherings. Adults create potluck events with capacity-limited dish slots, and members claim, swap, or release dishes without overbooking a category.
 
 ---
 
 ## Quick start
 
 ```bash
-# 1. Edit manifest.json — set id, name, description, data_access
-# 2. Build your app in src/index.html (and any other src/ files)
-# 3. Preview locally
+# 1. Preview locally
 npm run dev   # opens http://localhost:3001
 
-# 4. Build the installable bundle
+# 2. Build the installable bundle
 npm run build  # produces dist/bundle.json
 
-# 5. Install in your hub
+# 3. Install in your hub
 #    Paste the dist/bundle.json URL into Hub → Apps → Install from URL
 ```
 

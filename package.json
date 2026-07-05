@@ -1,7 +1,7 @@
 {
-  "name": "chickadee-app-template",
+  "name": "chickadeebandit-potluck",
   "version": "1.0.0",
-  "description": "Template for building Chickadee Bandit marketplace apps",
+  "description": "Potluck dish sign-up app for Chickadee Bandit",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",

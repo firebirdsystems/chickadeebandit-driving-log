@@ -1,21 +1,47 @@
 {
-  "id": "my-app",
-  "name": "My App",
+  "id": "potluck",
+  "name": "Potluck",
   "version": "1.0.0",
-  "description": "A short description of what this app does.",
+  "description": "Create gatherings with dish slots and let members claim, swap, and release dishes without overbooking a category.",
   "entrypoint": "index.html",
   "runtime": "static",
-  "category": "general",
-  "tags": [],
+  "category": "family",
+  "tags": ["food", "events", "potluck", "slot-claims"],
   "data_access": {
-    "reads": [],
-    "writes": []
+    "reads": ["family.members"],
+    "writes": ["family.members"]
   },
   "permissions": {
     "default_audience": "everyone",
     "requires_approval": false
   },
-  "storage": "none",
-  "nav": { "label": "My App" },
-  "icon": "🔧"
+  "storage": "db",
+  "row_policies": {
+    "events": {
+      "kind": "adult_writable"
+    },
+    "slots": {
+      "kind": "adult_writable"
+    },
+    "claims": {
+      "kind": "owner_only",
+      "member_column": "member_id",
+      "adults_bypass": true,
+      "unique_per_member": {
+        "member_column": "member_id",
+        "scope_columns": ["event_id", "slot_id"]
+      }
+    }
+  },
+  "publishes": ["potluck.event_created", "potluck.slot_claimed", "potluck.slot_released"],
+  "nav": { "label": "Potluck" },
+  "resource_limits": {
+    "max_db_bytes": 52428800
+  },
+  "icon": "🍽️",
+  "ai_access": {
+    "allowed": true,
+    "mode": "read",
+    "db_exports": ["upcoming_potlucks", "claim_summary"]
+  }
 }
