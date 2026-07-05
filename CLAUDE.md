@@ -72,23 +72,18 @@ Always use `esc()` when rendering user-provided strings into HTML templates.
 
 ### Updating hub-sdk.js
 
-`hub-sdk.js` has exactly **two** live copies, in two separate repos. Keep them byte-identical whenever you add or change a function:
-
-1. `app-template/hub-sdk.js` — **canonical source; edit this.** Published to the app-template GitHub repo, which every app's `dev.mjs` fetches (and caches as `.hub-sdk.js`) for local development.
-2. `packages/hub/public/hub-sdk.js` in the **chickadeebandit** hub repo — the file actually served to apps at `/hub-sdk.js` in production.
+The **canonical source is `packages/hub-contract/src/hub-sdk.js` in the chickadeebandit hub repo** — edit it there (assumes the hub repo is checked out as a sibling of the apps repo). There is no copy of the SDK in this repo: `dev.mjs` fetches the deployed hub's `/hub-sdk.js` (caching it as the gitignored `.hub-sdk.js`, refreshed every 24 h), and production apps import the same URL directly.
 
 Apps do **not** bundle the SDK — `build.mjs` only packages `manifest.json` + `src/`, and every `dev.mjs` fetches the SDK over the network. So don't add a per-app `hub-sdk.js`; any such copy is vestigial and used by nothing.
 
-After editing the canonical copy, sync it to the hub repo (assumes the hub repo is checked out as a sibling of the apps repo):
+After editing the canonical copy, sync the hub's served copy and commit both in the hub repo:
 
 ```bash
-npm run sync-sdk     # copies app-template/hub-sdk.js → packages/hub/public/hub-sdk.js
-npm run check-sdk    # verify only — exits non-zero on drift
+# in the hub repo, packages/hub:
+npm run sync-contract-assets   # copies hub-contract/src/hub-sdk.js → public/hub-sdk.js
 ```
 
-Then commit and push **both** repos: the app-template change (so `dev.mjs` serves the new SDK) and the hub change (so production serves it). They land independently, so land the app-template change first — a new helper isn't fully available until both are deployed.
-
-A CI guard in the hub repo (`packages/hub/__tests__/unit/hub-sdk-sync.test.ts`) fetches the canonical copy from the app-template repo's `main` and fails if the runtime copy has drifted, so a forgotten sync is caught automatically.
+A local CI guard in the hub repo (`packages/hub/__tests__/unit/hub-sdk-sync.test.ts`) fails if `public/hub-sdk.js` drifts from the package source, so a forgotten sync is caught automatically. A new helper becomes available to apps (dev and prod alike) once the hub deploys.
 
 ## Loading members
 
