@@ -3,577 +3,532 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Potluck</title>
+  <title>Driving Practice Log</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: var(--hub-bg, #f9fafb);
-      --surface: var(--hub-surface, #ffffff);
-      --border: var(--hub-border, #e5e7eb);
-      --border-mid: var(--hub-border, #d1d5db);
-      --text: var(--hub-text, #111827);
-      --muted: var(--hub-text-muted, #6b7280);
-      --accent: var(--hub-primary, #111827);
-      --accent-hover: var(--hub-primary-hover, #374151);
-      --accent-fg: var(--hub-primary-fg, #ffffff);
-      --radius: var(--hub-radius, 8px);
-      --green: #047857;
-      --green-soft: #d1fae5;
-      --amber: #b45309;
-      --amber-soft: #fef3c7;
-      --red: #b91c1c;
-      --red-soft: #fee2e2;
-      --blue-soft: #dbeafe;
+      --bg: var(--hub-bg, #f9fafb); --surface: var(--hub-surface, #ffffff);
+      --border: var(--hub-border, #e5e7eb); --border-mid: var(--hub-border, #d1d5db);
+      --text: var(--hub-text, #111827); --muted: var(--hub-text-muted, #6b7280);
+      --accent: var(--hub-primary, #111827); --accent-hover: var(--hub-primary-hover, #374151);
+      --accent-fg: var(--hub-primary-fg, #ffffff); --radius: var(--hub-radius, 8px);
+      --green: #047857; --green-soft: #d1fae5; --amber: #b45309; --amber-soft: #fef3c7;
+      --red: #b91c1c; --red-soft: #fee2e2; --blue-soft: #dbeafe;
       --shadow: 0 1px 3px rgba(15, 23, 42, .07);
     }
-    body {
-      min-height: 100vh;
-      background: var(--bg);
-      color: var(--text);
+    body { min-height: 100vh; background: var(--bg); color: var(--text);
       font-family: var(--hub-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
-      font-size: var(--hub-font-size, 15px);
-      line-height: 1.5;
-    }
-    .app { max-width: 820px; margin: 0 auto; padding: 16px; }
-    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-    h1 { font-size: 1.35rem; line-height: 1.2; }
-    h2 { font-size: 1rem; margin-bottom: 10px; }
-    .muted { color: var(--muted); }
-    .tiny { font-size: .78rem; }
+      font-size: var(--hub-font-size, 15px); line-height: 1.5; }
+    .app { max-width: 780px; margin: 0 auto; padding: 16px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+    h1 { font-size: 1.35rem; line-height: 1.2; } h2 { font-size: 1rem; margin-bottom: 10px; }
+    .muted { color: var(--muted); } .tiny { font-size: .78rem; }
     .stack { display: grid; gap: 12px; }
-    .grid { display: grid; gap: 12px; }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 14px;
-    }
-    .event-card { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
-    .event-card:hover { border-color: var(--border-mid); box-shadow: 0 5px 14px rgba(15, 23, 42, .08); }
-    .event-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-    .event-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-    .event-title { font-weight: 750; font-size: 1rem; }
-    .event-meta { margin-top: 3px; color: var(--muted); font-size: .82rem; }
-    .progress { height: 8px; overflow: hidden; border-radius: 999px; background: #eef2f7; margin-top: 10px; }
-    .progress > span { display: block; height: 100%; background: var(--green); border-radius: 999px; }
-    .pill {
-      display: inline-flex; align-items: center; justify-content: center;
-      min-height: 24px; padding: 2px 8px; border-radius: 999px;
-      background: #f1f5f9; color: var(--muted); font-size: .74rem; font-weight: 700; white-space: nowrap;
-    }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px; }
+    .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .meta { margin-top: 3px; color: var(--muted); font-size: .82rem; }
+    .bar-label { display: flex; justify-content: space-between; font-size: .82rem; font-weight: 700; margin-bottom: 4px; }
+    .progress { height: 12px; overflow: hidden; border-radius: 999px; background: #eef2f7; }
+    .progress > span { display: block; height: 100%; background: var(--green); border-radius: 999px; transition: width .3s; }
+    .progress.night > span { background: #4338ca; }
+    .pill { display: inline-flex; align-items: center; justify-content: center; min-height: 22px; padding: 2px 8px; border-radius: 999px; background: #f1f5f9; color: var(--muted); font-size: .72rem; font-weight: 700; white-space: nowrap; }
     .pill.good { background: var(--green-soft); color: var(--green); }
     .pill.warn { background: var(--amber-soft); color: var(--amber); }
     .pill.info { background: var(--blue-soft); color: #1d4ed8; }
-    .tabs { display: flex; gap: 4px; background: var(--border); padding: 3px; border-radius: 10px; margin-bottom: 14px; }
-    .tab { flex: 1; border: 0; border-radius: 8px; background: transparent; color: var(--muted); padding: 7px; font-weight: 700; cursor: pointer; }
-    .tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
-    .section-head {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 10px; margin: 6px 2px 10px;
-    }
-    .section-head h2 { margin-bottom: 0; }
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-      border: 1px solid transparent; border-radius: 8px; padding: 8px 12px;
-      font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer;
-      min-height: 38px; background: var(--accent); color: var(--accent-fg);
-    }
-    .btn:hover { background: var(--accent-hover); }
-    .btn:disabled { opacity: .48; cursor: default; }
+    .pill.bad { background: var(--red-soft); color: var(--red); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid transparent; border-radius: 8px; padding: 8px 12px; font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer; min-height: 38px; background: var(--accent); color: var(--accent-fg); }
+    .btn:hover { background: var(--accent-hover); } .btn:disabled { opacity: .48; cursor: default; }
     .btn-ghost { background: transparent; color: var(--text); border-color: var(--border-mid); }
     .btn-ghost:hover { background: #f8fafc; }
     .btn-danger { background: var(--red-soft); color: var(--red); border-color: transparent; }
-    .btn-danger:hover { background: #fecaca; }
-    .btn-quiet-danger {
-      min-height: 28px; padding: 3px 6px; background: transparent; color: var(--muted);
-      border: 0; font-size: .76rem; font-weight: 700;
-    }
+    .btn-quiet-danger { min-height: 28px; padding: 3px 6px; background: transparent; color: var(--muted); border: 0; font-size: .76rem; font-weight: 700; }
     .btn-quiet-danger:hover { background: var(--red-soft); color: var(--red); }
     .btn-sm { min-height: 31px; padding: 5px 9px; font-size: .78rem; }
-    .back { margin-bottom: 10px; }
-    .slot {
-      display: grid; gap: 10px; padding: 12px 0; border-top: 1px solid var(--border);
-    }
-    .slot:first-child { border-top: 0; padding-top: 0; }
-    .slot-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-    .slot-name { font-weight: 750; }
-    .claims { display: flex; flex-wrap: wrap; gap: 6px; }
-    .claim-chip {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: #f8fafc; border: 1px solid var(--border);
-      border-radius: 999px; padding: 3px 8px 3px 4px; font-size: .78rem;
-    }
-    .avatar {
-      width: 22px; height: 22px; border-radius: 50%;
-      display: inline-flex; align-items: center; justify-content: center;
-      color: white; font-size: .72rem; font-weight: 800; background: #0f766e;
-    }
+    .drive { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); }
+    .drive:first-child { border-top: 0; padding-top: 0; }
+    .drive-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .conds { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .form { display: grid; gap: 10px; }
     .field { display: grid; gap: 4px; }
     label { font-size: .76rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 800; }
-    input, textarea {
-      width: 100%; border: 1.5px solid var(--border-mid); border-radius: 8px;
-      padding: 9px 11px; font: inherit; background: var(--surface); color: var(--text);
-    }
-    textarea { min-height: 72px; resize: vertical; }
-    input:focus, textarea:focus { outline: none; border-color: var(--accent); }
-    .slot-builder { display: grid; gap: 8px; }
-    .slot-row { display: grid; grid-template-columns: 1fr 74px auto; gap: 8px; align-items: center; }
+    input, textarea, select { width: 100%; border: 1.5px solid var(--border-mid); border-radius: 8px; padding: 9px 11px; font: inherit; background: var(--surface); color: var(--text); }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+    select.inline { width: auto; min-width: 130px; }
+    .grid.two { display: grid; gap: 10px; } @media (min-width: 640px) { .grid.two { grid-template-columns: 1fr 1fr; } }
+    .note-row { font-size: .82rem; padding: 4px 0; border-top: 1px dashed var(--border); }
     .empty, .loading { color: var(--muted); text-align: center; padding: 32px 16px; }
     .error { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
-    .notice { background: var(--amber-soft); color: var(--amber); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
-    @media (min-width: 700px) {
-      .grid.two { grid-template-columns: 1fr 1fr; }
-    }
-    @media (max-width: 560px) {
-      .topbar, .event-head, .slot-top { align-items: stretch; flex-direction: column; }
-      .slot-row { grid-template-columns: 1fr; }
-      .actions .btn { flex: 1; }
-    }
+    .notice { background: var(--green-soft); color: var(--green); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
   </style>
-  <base href="/run/potluck/">
+  <base href="/run/driving-log/">
 </head>
 <body>
-<div class="app">
-  <div id="root" class="loading">Loading...</div>
-</div>
+<div class="app"><div id="root" class="loading">Loading…</div></div>
 
 <script type="module">
-import { esc, isAdult, memberColor, initial, hubConfirm } from "/hub-sdk.js";
+import { esc, hubConfirm, hubAlert, sendHubNotification, hubAppUrl } from "/hub-sdk.js";
+import {
+  canSupervise as _canSupervise, isCertified, certState as _certState, isVoided,
+  fmtDuration, computeProgress, buildCsv, DEFAULT_GOAL,
+} from "./logic.js";
 
-const CONTEXT = window.__CONTEXT_URL ?? "";
-const DB = window.__DB_URL ?? "";
-const HUB_MEMBER = window.__CURRENT_MEMBER ?? null;
+const CONTEXT     = window.__CONTEXT_URL       ?? "";
+const DB          = window.__DB_URL            ?? "";
+const APPEND_URL  = window.__APPEND_RECORD_URL ?? "";
+const EVENTS_URL  = window.__EVENTS_URL         ?? "/api/events";
+const APP_ID      = window.__APP_ID             ?? "driving-log";
+const ME          = window.__CURRENT_MEMBER     ?? null;
+
+const WEATHER = ["clear", "rain", "snow", "fog", "wind"];
+const ROAD = ["residential", "city", "rural", "highway", "freeway"];
 
 let members = [];
+let memberMap = new Map();
 let currentMember = null;
-let events = [];
-let slots = [];
-let claims = [];
-let selectedEventId = null;
-let view = "upcoming";
-let error = "";
-let notice = "";
-let draftSlots = [
-  { name: "Turkey", capacity: 1 },
-  { name: "Sides", capacity: 4 },
-  { name: "Desserts", capacity: 2 },
-];
+let drives = [];
+let certById = new Map();
+let notes = [];
+let goalsByMember = new Map();
+let selectedDriverId = null;
+let error = "", notice = "";
 
-function nowIso() { return new Date().toISOString(); }
-function uid(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
-function today() { return new Date().toISOString().slice(0, 10); }
-function fmtDate(value) {
-  if (!value) return "";
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" })
-    .format(new Date(`${value}T12:00:00`));
+function canSupervise() { return _canSupervise(currentMember); }
+function certState(id) { return _certState(id, certById, notes); }
+
+const nowIso = () => new Date().toISOString();
+const today = () => new Date().toLocaleDateString("en-CA");
+function memberName(id) { return memberMap.get(id)?.name ?? "Member"; }
+function adultMembers() { return members.filter(m => m.role === "adult"); }
+function goalFor(id) { return goalsByMember.get(id) ?? { ...DEFAULT_GOAL }; }
+function canEditGoal(driverId) { return canSupervise() || currentMember?.id === driverId; }
+function driverDrives(id) { return drives.filter(d => d.driver_id === id).sort((a, b) => b.date.localeCompare(a.date)); }
+function driverIds() {
+  const set = new Set(drives.map(d => d.driver_id));
+  if (currentMember && currentMember.role !== "adult") set.add(currentMember.id);
+  return [...set];
 }
-function memberById(id) { return members.find(m => m.id === id) ?? null; }
-function canCreate() { return isAdult(currentMember); }
-function selectedEvent() { return events.find(e => e.id === selectedEventId) ?? null; }
-function eventSlots(eventId) { return slots.filter(s => s.event_id === eventId).sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)); }
-function slotClaims(slotId) { return claims.filter(c => c.slot_id === slotId).sort((a, b) => a.claimed_at.localeCompare(b.claimed_at)); }
-function myClaim(slotId) { return claims.find(c => c.slot_id === slotId && c.member_id === currentMember?.id) ?? null; }
-function claimedCount(slotId) { return slotClaims(slotId).length; }
-function eventTotals(eventId) {
-  const ss = eventSlots(eventId);
-  const capacity = ss.reduce((sum, s) => sum + Number(s.capacity || 0), 0);
-  const claimed = ss.reduce((sum, s) => sum + claimedCount(s.id), 0);
-  return { claimed, capacity, pct: capacity ? Math.min(100, Math.round((claimed / capacity) * 100)) : 0 };
-}
+function fmtDate(v) { return v ? new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" }).format(new Date(`${v}T12:00:00`)) : ""; }
 
 async function dbq(sql, params = []) {
   if (!DB) return { rows: [] };
-  const res = await fetch(DB, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sql, params }),
-  });
+  const res = await fetch(DB, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql, params }) });
   const json = await res.json();
   if (json.error) throw new Error(json.error);
   return json;
+}
+async function appendRecord(name, data) {
+  if (!APPEND_URL) return { id: `local-${crypto.randomUUID()}`, created_at: nowIso() };
+  const res = await fetch(`${APPEND_URL}/${encodeURIComponent(name)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.error) throw new Error(json.error || "Could not save record.");
+  return json;
+}
+async function agree(id, agreed) {
+  const res = await fetch(`/run/${APP_ID}/api/agree`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ table: "certifications", id, agreed }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.error) throw new Error(json.error || "Signature failed.");
+  return json;
+}
+function publish(type, subject_id, payload) {
+  fetch(EVENTS_URL, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source_app_id: APP_ID, type, subject_id, payload }) }).catch(() => {});
 }
 
 async function loadMembers() {
   if (!CONTEXT) {
     members = [
-      { id: "demo-1", name: "Alex", role: "adult" },
-      { id: "demo-2", name: "Jordan", role: "adult" },
-      { id: "demo-3", name: "Casey", role: "child" },
-      { id: "demo-4", name: "Riley", role: "child" },
+      { id: "demo-teen", name: "Riley", role: "child" },
+      { id: "demo-mom", name: "Alex", role: "adult" },
+      { id: "demo-dad", name: "Jordan", role: "adult" },
     ];
   } else {
-    const res = await fetch(`${CONTEXT}?keys=family.members`);
-    members = ((await res.json())["family.members"]) ?? [];
+    try { const res = await fetch(`${CONTEXT}?keys=family.members`); members = ((await res.json())["family.members"]) ?? []; }
+    catch { members = []; }
   }
-  currentMember = HUB_MEMBER ?? members[0] ?? { id: "guest", name: "Guest", role: "adult" };
+  memberMap = new Map(members.map(m => [m.id, m]));
+  currentMember = ME ?? members[0] ?? { id: "guest", name: "Guest", role: "adult" };
 }
 
-async function seedDemo() {
-  if (DB) return;
-  const eventId = "demo-thanksgiving";
-  events = [{
-    id: eventId, title: "Thanksgiving Dinner", date: today(), location: "Home",
-    notes: "Claim what you are bringing so the table balances out.",
-    created_by_id: "demo-1", created_by_name: "Alex", created_at: nowIso(), archived: 0,
-  }];
-  slots = [
-    { id: "slot-turkey", event_id: eventId, name: "Turkey", capacity: 1, sort_order: 0 },
-    { id: "slot-sides", event_id: eventId, name: "Sides", capacity: 4, sort_order: 1 },
-    { id: "slot-desserts", event_id: eventId, name: "Desserts", capacity: 2, sort_order: 2 },
+function seedDemo() {
+  drives = [
+    { id: "d1", driver_id: "demo-teen", supervisor_id: "demo-mom", date: "2026-06-20", minutes: 90, night_minutes: 0, weather: "clear", road: "residential", notes: "First time on the highway ramp.", created_by: "demo-teen", created_at: nowIso() },
+    { id: "d2", driver_id: "demo-teen", supervisor_id: "demo-dad", date: "2026-06-28", minutes: 75, night_minutes: 60, weather: "rain", road: "city", notes: "Night + wet roads.", created_by: "demo-teen", created_at: nowIso() },
+    { id: "d3", driver_id: "demo-teen", supervisor_id: "demo-mom", date: "2026-07-02", minutes: 45, night_minutes: 0, weather: "clear", road: "highway", notes: "", created_by: "demo-teen", created_at: nowIso() },
   ];
-  claims = [{ id: "claim-1", event_id: eventId, slot_id: "slot-desserts", member_id: "demo-2", member_name: "Jordan", note: "Apple pie", claimed_at: nowIso() }];
+  certById = new Map([
+    ["d1", { id: "d1", driver_id: "demo-teen", supervisor_id: "demo-mom", driver_attested: 1, supervisor_signed: 1, status: "locked", locked_at: nowIso() }],
+    ["d2", { id: "d2", driver_id: "demo-teen", supervisor_id: "demo-dad", driver_attested: 1, supervisor_signed: 0, status: "pending" }],
+    ["d3", { id: "d3", driver_id: "demo-teen", supervisor_id: "demo-mom", driver_attested: 1, supervisor_signed: 0, status: "pending" }],
+  ]);
+  notes = [{ id: "n1", drive_id: "d1", kind: "note", body: "Smooth lane changes.", created_by: "demo-mom", created_at: nowIso() }];
+  goalsByMember = new Map();
 }
 
 async function loadData() {
-  if (!DB) { await seedDemo(); return; }
-  const [eventRows, slotRows, claimRows] = await Promise.all([
-    dbq("SELECT * FROM app_potluck__events WHERE archived = 0 ORDER BY date ASC, created_at ASC"),
-    dbq("SELECT * FROM app_potluck__slots ORDER BY sort_order ASC, name ASC"),
-    dbq("SELECT * FROM app_potluck__claims ORDER BY claimed_at ASC"),
+  if (!DB) { seedDemo(); return; }
+  const [driveRows, certRows, noteRows] = await Promise.all([
+    dbq("SELECT * FROM app_driving_log__drives ORDER BY date DESC"),
+    dbq("SELECT * FROM app_driving_log__certifications"),
+    dbq("SELECT * FROM app_driving_log__notes ORDER BY created_at ASC"),
   ]);
-  events = eventRows.rows.map(e => ({ ...e, archived: !!e.archived }));
-  slots = slotRows.rows;
-  claims = claimRows.rows;
+  drives = driveRows.rows;
+  certById = new Map(certRows.rows.map(c => [c.id, c]));
+  notes = noteRows.rows;
+}
+async function loadGoal(driverId) {
+  if (!DB || !driverId) return;
+  try {
+    const { rows } = await dbq("SELECT * FROM app_driving_log__goals WHERE member_id = ?", [driverId]);
+    if (rows[0]) goalsByMember.set(driverId, rows[0]);
+  } catch { /* owner_only may 403 for a non-owner non-adult; default goal is fine */ }
 }
 
 async function refresh() {
   clearMessages();
   try {
-    await loadMembers();
-    await loadData();
-    if (selectedEventId && !events.some(e => e.id === selectedEventId)) selectedEventId = null;
+    await Promise.all([loadMembers(), loadData()]);
+    if (!selectedDriverId || !driverIds().includes(selectedDriverId)) {
+      selectedDriverId = driverIds().includes(currentMember?.id) ? currentMember.id : (driverIds()[0] ?? currentMember?.id);
+    }
+    await loadGoal(selectedDriverId);
     render();
-  } catch (e) {
-    error = e.message;
-    render();
-  }
+  } catch (e) { error = e.message; render(); }
 }
-
 function clearMessages() { error = ""; notice = ""; }
-function showError(message) { error = message; notice = ""; render(); }
-function showNotice(message) { notice = message; error = ""; render(); }
+function showError(m) { error = m; notice = ""; render(); }
+function showNotice(m) { notice = m; error = ""; render(); }
 
-async function createEvent(form) {
-  if (!canCreate()) return showError("Only adults and leadership can create potlucks.");
-  const title = form.title.value.trim();
+// ── log a drive (append-only) + auto-attest as the logger ──
+async function logDrive(form) {
+  const driver_id = form.driver_id.value;
+  const supervisor_id = form.supervisor_id.value;
   const date = form.date.value;
-  const location = form.location.value.trim();
-  const notes = form.notes.value.trim();
-  const cleanSlots = draftSlots
-    .map((s, index) => ({ ...s, name: s.name.trim(), capacity: Math.max(1, Number(s.capacity) || 1), sort_order: index }))
-    .filter(s => s.name);
-  if (!title || !date || cleanSlots.length === 0) return showError("Add a title, date, and at least one dish slot.");
+  const minutes = Math.max(0, parseInt(form.minutes.value, 10) || 0);
+  const night_minutes = Math.max(0, parseInt(form.night_minutes.value, 10) || 0);
+  const weather = form.weather.value;
+  const road = form.road.value;
+  const driveNotes = form.notes.value.trim();
+  if (!driver_id || !supervisor_id) return showError("Choose a driver and a supervising adult.");
+  if (driver_id === supervisor_id) return showError("The supervisor must be someone other than the driver.");
+  if (!date || minutes <= 0) return showError("Add a date and a positive number of minutes.");
+  if (night_minutes > minutes) return showError("Night minutes can't exceed total minutes.");
+  const iAmParticipant = currentMember?.id === driver_id || currentMember?.id === supervisor_id;
+  if (!iAmParticipant) return showError("You can only log a drive you were the driver or supervisor for.");
 
-  const event = {
-    id: uid("potluck"), title, date, location, notes,
-    created_by_id: currentMember.id, created_by_name: currentMember.name, created_at: nowIso(), archived: 0,
-  };
-  const eventSlotsToInsert = cleanSlots.map(s => ({ ...s, id: uid("slot"), event_id: event.id, created_at: nowIso() }));
-
+  const btn = form.querySelector('button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
   try {
-    if (DB) {
-      await dbq(
-        `INSERT INTO app_potluck__events (id, title, date, location, notes, created_by_id, created_by_name, created_at, archived)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-        [event.id, event.title, event.date, event.location, event.notes, event.created_by_id, event.created_by_name, event.created_at]
-      );
-      for (const s of eventSlotsToInsert) {
-        await dbq(
-          `INSERT INTO app_potluck__slots (id, event_id, name, capacity, sort_order, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [s.id, s.event_id, s.name, s.capacity, s.sort_order, s.created_at]
-        );
-      }
+    const rec = await appendRecord("drives", { driver_id, supervisor_id, date, minutes, night_minutes, weather, road, notes: driveNotes });
+    const drive = { id: rec.id, driver_id, supervisor_id, date, minutes, night_minutes, weather, road, notes: driveNotes, created_by: currentMember.id, created_at: rec.created_at ?? nowIso() };
+    drives = [drive, ...drives];
+    // Bootstrap the certification row and set the logger's own signature flag.
+    try {
+      await agree(drive.id, true);
+      certById.set(drive.id, {
+        id: drive.id, driver_id, supervisor_id,
+        driver_attested: currentMember.id === driver_id ? 1 : 0,
+        supervisor_signed: currentMember.id === supervisor_id ? 1 : 0,
+        status: "pending", locked_at: null,
+      });
+    } catch { /* agree is best-effort; the drive is still logged */ }
+    form.reset();
+    selectedDriverId = driver_id;
+    showNotice("Drive logged. Awaiting the other signature to certify.");
+    publish("driving-log.logged", drive.id, { driver_id, minutes });
+    const other = currentMember.id === driver_id ? supervisor_id : driver_id;
+    sendHubNotification({ title: "Drive to countersign", body: `${memberName(driver_id)} logged a ${fmtDuration(minutes)} drive.`, audience: [other], url: hubAppUrl(APP_ID, {}) }).catch(() => {});
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = "Log drive"; }
+    showError(e.message);
+  }
+}
+
+// ── attest / countersign ──
+async function sign(driveId) {
+  const drive = drives.find(d => d.id === driveId);
+  if (!drive) return;
+  const isParticipant = currentMember?.id === drive.driver_id || currentMember?.id === drive.supervisor_id;
+  if (!isParticipant) return showError("Only the driver or supervisor can sign this entry.");
+  try {
+    const res = await agree(driveId, true);
+    const cert = certById.get(driveId) ?? { id: driveId, driver_id: drive.driver_id, supervisor_id: drive.supervisor_id, driver_attested: 0, supervisor_signed: 0, status: "pending" };
+    if (currentMember.id === drive.driver_id) cert.driver_attested = 1;
+    if (currentMember.id === drive.supervisor_id) cert.supervisor_signed = 1;
+    const locked = res.status === "locked" || (cert.driver_attested && cert.supervisor_signed);
+    cert.status = locked ? "locked" : "pending";
+    if (locked) cert.locked_at = nowIso();
+    certById.set(driveId, { ...cert });
+    render();
+    if (locked) {
+      showNotice("Drive certified ✓");
+      publish("driving-log.certified", driveId, { driver_id: drive.driver_id, minutes: drive.minutes });
+    } else {
+      showNotice("Signed. Waiting on the other party.");
     }
-    events = [...events, event].sort((a, b) => a.date.localeCompare(b.date));
-    slots = [...slots, ...eventSlotsToInsert];
-    selectedEventId = event.id;
-    view = "upcoming";
-    showNotice("Potluck created.");
-  } catch (e) {
-    showError(e.message);
-  }
+  } catch (e) { showError(e.message); }
 }
 
-async function claimSlot(slotId) {
-  const slot = slots.find(s => s.id === slotId);
-  if (!slot || !currentMember) return false;
-  if (myClaim(slotId)) { showError("You already claimed this slot."); return false; }
-  if (claimedCount(slotId) >= Number(slot.capacity)) { showError("That slot is already full."); return false; }
-  const claim = {
-    id: uid("claim"), event_id: slot.event_id, slot_id: slot.id,
-    member_id: currentMember.id, member_name: currentMember.name, note: "", claimed_at: nowIso(),
-  };
+async function withdraw(driveId) {
+  const drive = drives.find(d => d.id === driveId);
+  if (!drive) return;
   try {
-    if (DB) {
-      const result = await dbq(
-        `INSERT INTO app_potluck__claims (id, event_id, slot_id, member_id, member_name, note, claimed_at)
-         SELECT ?, ?, ?, ?, ?, ?, ?
-         WHERE (SELECT COUNT(*) FROM app_potluck__claims WHERE slot_id = ?) <
-               (SELECT capacity FROM app_potluck__slots WHERE id = ?)
-           AND NOT EXISTS (
-             SELECT 1 FROM app_potluck__claims WHERE slot_id = ? AND member_id = ?
-           )`,
-        [claim.id, claim.event_id, claim.slot_id, claim.member_id, claim.member_name, claim.note, claim.claimed_at, slot.id, slot.id, slot.id, currentMember.id]
-      );
-      if (result.meta?.changes === 0) throw new Error("Someone just claimed the last opening. Refreshing the list.");
+    await agree(driveId, false);
+    const cert = certById.get(driveId);
+    if (cert) {
+      if (currentMember.id === drive.driver_id) cert.driver_attested = 0;
+      if (currentMember.id === drive.supervisor_id) cert.supervisor_signed = 0;
+      cert.status = "pending"; cert.locked_at = null;
+      certById.set(driveId, { ...cert });
     }
-    claims = [...claims, claim];
-    showNotice(`Claimed ${slot.name}.`);
-    return true;
-  } catch (e) {
-    await loadData().catch(() => {});
-    showError(e.message);
-    return false;
-  }
+    render();
+  } catch (e) { showError(e.message); }
 }
 
-async function releaseClaim(claimId) {
-  const claim = claims.find(c => c.id === claimId);
-  if (!claim) return false;
-  const allowed = claim.member_id === currentMember?.id || canCreate();
-  if (!allowed) { showError("You can only release your own claim."); return false; }
+// ── adult-only immutable annotations ──
+async function addNote(driveId) {
+  if (!canSupervise()) return;
+  openNoteModal(driveId);
+}
+async function submitNote(driveId, body) {
+  const text = (body || "").trim();
+  if (!text) return;
   try {
-    if (DB) await dbq("DELETE FROM app_potluck__claims WHERE id = ?", [claimId]);
-    claims = claims.filter(c => c.id !== claimId);
-    showNotice("Dish released.");
-    return true;
-  } catch (e) {
-    showError(e.message);
-    return false;
-  }
+    const rec = await appendRecord("notes", { drive_id: driveId, kind: "note", body: text });
+    notes = [...notes, { id: rec.id, drive_id: driveId, kind: "note", body: text, created_by: currentMember.id, created_at: rec.created_at ?? nowIso() }];
+    closeModal();
+    showNotice("Observation added.");
+  } catch (e) { showError(e.message); }
 }
-
-async function swapTo(slotId) {
-  const eventId = selectedEventId;
-  const own = claims.find(c => c.event_id === eventId && c.member_id === currentMember?.id);
-  if (!own) return claimSlot(slotId);
-  if (own.slot_id === slotId) return;
-  const ok = await hubConfirm("Move your claim to this dish slot?");
-  if (!ok) return;
-  const oldClaimId = own.id;
-  const claimedNewSlot = await claimSlot(slotId);
-  if (claimedNewSlot) await releaseClaim(oldClaimId);
-}
-
-async function archiveEvent(eventId) {
-  if (!canCreate()) return showError("Only adults and leadership can archive potlucks.");
-  const ok = await hubConfirm({
-    message: "Archive this potluck?",
-    description: "It will be hidden from the active gathering list. Existing claims are preserved.",
-    confirmLabel: "Archive",
-    destructive: true,
-  });
+async function voidDrive(driveId) {
+  if (!canSupervise()) return showError("Only a supervising adult can void an entry.");
+  if (isVoided(driveId, notes)) return;
+  const ok = await hubConfirm({ message: "Void this entry?", description: "It will be excluded from certified totals. The record is kept (append-only) but marked corrected.", confirmLabel: "Void entry", destructive: true });
   if (!ok) return;
   try {
-    if (DB) await dbq("UPDATE app_potluck__events SET archived = 1 WHERE id = ?", [eventId]);
-    events = events.filter(e => e.id !== eventId);
-    selectedEventId = null;
-    showNotice("Potluck archived.");
-  } catch (e) {
-    showError(e.message);
-  }
+    const rec = await appendRecord("notes", { drive_id: driveId, kind: "void", body: "Voided by supervisor." });
+    notes = [...notes, { id: rec.id, drive_id: driveId, kind: "void", body: "Voided by supervisor.", created_by: currentMember.id, created_at: rec.created_at ?? nowIso() }];
+    render();
+    showNotice("Entry voided.");
+  } catch (e) { showError(e.message); }
 }
 
-function addDraftSlot() {
-  draftSlots.push({ name: "", capacity: 1 });
-  render();
-}
-function updateDraft(index, field, value) {
-  draftSlots[index][field] = field === "capacity" ? Math.max(1, Number(value) || 1) : value;
-}
-function removeDraft(index) {
-  draftSlots.splice(index, 1);
-  if (!draftSlots.length) addDraftSlot();
-  render();
-}
-
-function renderMessages() {
-  return `${error ? `<div class="error">${esc(error)}</div>` : ""}${notice ? `<div class="notice">${esc(notice)}</div>` : ""}`;
-}
-
-function renderEventCard(event) {
-  const totals = eventTotals(event.id);
-  const statusClass = totals.capacity && totals.claimed >= totals.capacity ? "good" : totals.claimed ? "info" : "warn";
-  return `
-    <article class="card event-card" data-open-event="${esc(event.id)}">
-      <div class="event-head">
-        <div>
-          <div class="event-title">${esc(event.title)}</div>
-          <div class="event-meta">${esc(fmtDate(event.date))}${event.location ? ` · ${esc(event.location)}` : ""}</div>
-        </div>
-        <span class="pill ${statusClass}">${totals.claimed}/${totals.capacity} claimed</span>
-      </div>
-      ${event.notes ? `<p class="event-meta">${esc(event.notes)}</p>` : ""}
-      <div class="progress" aria-hidden="true"><span style="width:${totals.pct}%"></span></div>
-    </article>
-  `;
+async function saveGoal(driverId, totalHours, nightHours) {
+  if (!canEditGoal(driverId)) return;
+  const total_minutes = Math.max(0, Math.round((Number(totalHours) || 0) * 60));
+  const night_minutes = Math.max(0, Math.round((Number(nightHours) || 0) * 60));
+  const row = { member_id: driverId, total_minutes, night_minutes, updated_at: nowIso() };
+  try {
+    if (DB) await dbq(
+      `INSERT INTO app_driving_log__goals (member_id, total_minutes, night_minutes, updated_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(member_id) DO UPDATE SET total_minutes = excluded.total_minutes, night_minutes = excluded.night_minutes, updated_at = excluded.updated_at`,
+      [driverId, total_minutes, night_minutes, row.updated_at]);
+    goalsByMember.set(driverId, row);
+    closeModal();
+    render();
+    showNotice("Goal updated.");
+  } catch (e) { showError(e.message); }
 }
 
-function renderList() {
-  const visible = [...events].sort((a, b) => a.date.localeCompare(b.date));
-  return `
-    <div class="topbar">
-      <div>
-        <h1>Potluck</h1>
-        <p class="muted tiny">Claim dishes without double-booking dessert.</p>
-      </div>
-      ${canCreate() ? `<button class="btn" data-view-create>Create</button>` : ""}
+// ── export ──
+function exportCsv() {
+  const csv = buildCsv(driverDrives(selectedDriverId), certById, notes, memberName);
+  if (!csv.split("\r\n").length || csv.split("\r\n").length < 2) return hubAlert("No certified drives to export yet.");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `driving-log-${memberName(selectedDriverId)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ── modal ──
+let modalEl = null;
+function openModal(html) {
+  closeModal();
+  modalEl = document.createElement("div");
+  modalEl.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;";
+  modalEl.innerHTML = `<div class="card" style="max-width:420px;width:100%;">${html}</div>`;
+  modalEl.addEventListener("click", e => { if (e.target === modalEl) closeModal(); });
+  document.body.appendChild(modalEl);
+}
+function closeModal() { modalEl?.remove(); modalEl = null; }
+function openNoteModal(driveId) {
+  openModal(`
+    <h2>Add observation</h2>
+    <div class="field"><label for="m-note">Note</label><textarea id="m-note" placeholder="What went well or needs work…"></textarea></div>
+    <div class="actions" style="margin-top:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost btn-sm" data-modal-cancel>Cancel</button>
+      <button class="btn btn-sm" data-modal-note="${esc(driveId)}">Save</button>
+    </div>`);
+  modalEl.querySelector("#m-note")?.focus();
+}
+function openGoalModal(driverId) {
+  const g = goalFor(driverId);
+  openModal(`
+    <h2>State requirement for ${esc(memberName(driverId))}</h2>
+    <div class="grid two">
+      <div class="field"><label for="m-total">Total hours</label><input id="m-total" type="number" min="0" step="1" value="${esc(String(Math.round(g.total_minutes / 60)))}" /></div>
+      <div class="field"><label for="m-night">Night hours</label><input id="m-night" type="number" min="0" step="1" value="${esc(String(Math.round(g.night_minutes / 60)))}" /></div>
     </div>
-    ${renderMessages()}
-    <div class="section-head">
-      <h2>Gatherings</h2>
-      <button class="btn btn-ghost btn-sm" type="button" data-refresh>Refresh</button>
-    </div>
-    <section class="stack">
-      ${visible.length ? visible.map(renderEventCard).join("") : `<div class="card empty">No potlucks yet.</div>`}
-    </section>
-  `;
+    <div class="actions" style="margin-top:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost btn-sm" data-modal-cancel>Cancel</button>
+      <button class="btn btn-sm" data-modal-goal="${esc(driverId)}">Save goal</button>
+    </div>`);
 }
 
-function renderDetail() {
-  const event = selectedEvent();
-  if (!event) return renderList();
-  const totals = eventTotals(event.id);
-  const ownClaims = claims.filter(c => c.event_id === event.id && c.member_id === currentMember?.id);
+// ── render ──
+function renderMessages() { return `${error ? `<div class="error">${esc(error)}</div>` : ""}${notice ? `<div class="notice">${esc(notice)}</div>` : ""}`; }
+
+function renderProgress() {
+  const p = computeProgress(driverDrives(selectedDriverId).filter(d => !isVoided(d.id, notes)), certById, notes, goalFor(selectedDriverId));
+  const g = goalFor(selectedDriverId);
   return `
-    <button class="btn btn-ghost btn-sm back" data-back>Back</button>
-    ${renderMessages()}
     <section class="card stack">
-      <div class="event-head">
+      <div class="head">
         <div>
-          <h1>${esc(event.title)}</h1>
-          <p class="muted">${esc(fmtDate(event.date))}${event.location ? ` · ${esc(event.location)}` : ""}</p>
+          <h2 style="margin-bottom:2px;">Progress ${p.complete ? `<span class="pill good">Goal met 🎉</span>` : ""}</h2>
+          <div class="meta">${p.certifiedCount} certified · ${p.pendingCount} awaiting signature</div>
         </div>
-        <div class="event-tools">
-          <span class="pill ${totals.claimed >= totals.capacity ? "good" : "info"}">${totals.claimed}/${totals.capacity} spots</span>
-          ${canCreate() ? `<button class="btn btn-quiet-danger" data-archive="${esc(event.id)}">Archive</button>` : ""}
+        <div class="actions">
+          ${canEditGoal(selectedDriverId) ? `<button class="btn btn-ghost btn-sm" data-edit-goal="${esc(selectedDriverId)}">Set goal</button>` : ""}
+          <button class="btn btn-ghost btn-sm" data-export>Export CSV</button>
         </div>
       </div>
-      ${event.notes ? `<p>${esc(event.notes)}</p>` : ""}
-      ${ownClaims.length ? `<p class="muted tiny">You are bringing ${ownClaims.map(c => esc(slots.find(s => s.id === c.slot_id)?.name ?? "a dish")).join(", ")}.</p>` : ""}
-    </section>
-    <section class="card">
-      <h2>Dish slots</h2>
-      ${eventSlots(event.id).map(renderSlot).join("") || `<div class="empty">No dish slots yet.</div>`}
-    </section>
-  `;
+      <div>
+        <div class="bar-label"><span>Total supervised</span><span>${fmtDuration(p.total)} / ${fmtDuration(g.total_minutes)}</span></div>
+        <div class="progress"><span style="width:${p.totalPct}%"></span></div>
+      </div>
+      <div>
+        <div class="bar-label"><span>Night driving</span><span>${fmtDuration(p.night)} / ${fmtDuration(g.night_minutes)}</span></div>
+        <div class="progress night"><span style="width:${p.nightPct}%"></span></div>
+      </div>
+    </section>`;
 }
 
-function renderSlot(slot) {
-  const sc = slotClaims(slot.id);
-  const mine = myClaim(slot.id);
-  const full = sc.length >= Number(slot.capacity);
-  const hasAnyMine = claims.some(c => c.event_id === slot.event_id && c.member_id === currentMember?.id);
-  const claimButton = mine
-    ? `<button class="btn btn-danger btn-sm" data-release="${esc(mine.id)}">Release</button>`
-    : `<button class="btn btn-sm" data-claim="${esc(slot.id)}" ${full ? "disabled" : ""}>${hasAnyMine ? "Swap here" : "Claim"}</button>`;
+function renderDriverPicker() {
+  const ids = driverIds();
+  if (ids.length <= 1) return "";
+  const opts = ids.map(id => `<option value="${esc(id)}" ${id === selectedDriverId ? "selected" : ""}>${esc(memberName(id))}</option>`).join("");
+  return `<select class="inline" data-driver-picker>${opts}</select>`;
+}
+
+function condBadges(d) {
+  const out = [`<span class="pill">${esc(d.road)}</span>`, `<span class="pill">${esc(d.weather)}</span>`];
+  if (d.night_minutes > 0) out.push(`<span class="pill info">night ${fmtDuration(d.night_minutes)}</span>`);
+  return out.join("");
+}
+function certBadge(state) {
+  if (state === "certified") return `<span class="pill good">Certified ✓</span>`;
+  if (state === "voided") return `<span class="pill bad">Voided</span>`;
+  if (state === "awaiting") return `<span class="pill warn">Awaiting signature</span>`;
+  return `<span class="pill">Unsigned</span>`;
+}
+function renderDrive(d) {
+  const state = certState(d.id);
+  const cert = certById.get(d.id);
+  const iAmDriver = currentMember?.id === d.driver_id;
+  const iAmSup = currentMember?.id === d.supervisor_id;
+  const mySigned = iAmDriver ? cert?.driver_attested : iAmSup ? cert?.supervisor_signed : false;
+  const driveNotes = notes.filter(n => n.drive_id === d.id && n.kind === "note");
+  let actions = "";
+  if (state !== "voided") {
+    if ((iAmDriver || iAmSup) && !mySigned) actions += `<button class="btn btn-sm" data-sign="${esc(d.id)}">${iAmDriver ? "Attest" : "Countersign"}</button>`;
+    if ((iAmDriver || iAmSup) && mySigned && state !== "certified") actions += `<button class="btn btn-ghost btn-sm" data-withdraw="${esc(d.id)}">Withdraw</button>`;
+    if (canSupervise()) actions += `<button class="btn btn-ghost btn-sm" data-note="${esc(d.id)}">Note</button>`;
+    if (canSupervise()) actions += `<button class="btn btn-quiet-danger" data-void="${esc(d.id)}">Void</button>`;
+  }
   return `
-    <div class="slot">
-      <div class="slot-top">
+    <div class="drive">
+      <div class="drive-top">
         <div>
-          <div class="slot-name">${esc(slot.name)}</div>
+          <strong>${esc(fmtDate(d.date))} · ${fmtDuration(d.minutes)}</strong>
+          <div class="meta tiny">Supervised by ${esc(memberName(d.supervisor_id))}</div>
+          <div class="conds">${condBadges(d)}</div>
         </div>
-        <span class="pill ${full ? "good" : "warn"}">${sc.length}/${slot.capacity}</span>
+        ${certBadge(state)}
       </div>
-      <div class="claims">
-        ${sc.length ? sc.map(renderClaim).join("") : `<span class="muted tiny">Open spot</span>`}
-      </div>
-      <div class="actions">${mine ? claimButton : claimButton.replace("data-claim", hasAnyMine ? "data-swap" : "data-claim")}</div>
-    </div>
-  `;
+      ${d.notes ? `<div class="meta">${esc(d.notes)}</div>` : ""}
+      ${driveNotes.map(n => `<div class="note-row"><strong>${esc(memberName(n.created_by))}:</strong> ${esc(n.body)}</div>`).join("")}
+      ${actions ? `<div class="actions">${actions}</div>` : ""}
+    </div>`;
 }
 
-function renderClaim(claim) {
-  const member = memberById(claim.member_id);
-  const color = memberColor(member?.id ?? claim.member_id);
+function renderLogForm() {
+  const driverOpts = members.map(m => `<option value="${esc(m.id)}" ${m.id === selectedDriverId ? "selected" : ""}>${esc(m.name)}</option>`).join("");
+  const supOpts = adultMembers().map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("");
   return `
-    <span class="claim-chip">
-      <span class="avatar" style="background:${esc(color)}">${esc(initial(claim.member_name))}</span>
-      ${esc(claim.member_name)}
-    </span>
-  `;
-}
-
-function renderCreate() {
-  return `
-    <button class="btn btn-ghost btn-sm back" data-view-list>Back</button>
-    <div class="topbar"><h1>Create Potluck</h1></div>
-    ${renderMessages()}
-    <form class="card form" id="create-form">
-      <div class="grid two">
-        <div class="field">
-          <label for="title">Gathering</label>
-          <input id="title" name="title" value="Holiday Dinner" required />
+    <details class="card">
+      <summary style="cursor:pointer;font-weight:750;">Log a drive</summary>
+      <form class="form" id="log-form" style="margin-top:10px;">
+        <div class="grid two">
+          <div class="field"><label for="f-driver">Driver</label><select id="f-driver" name="driver_id" required>${driverOpts}</select></div>
+          <div class="field"><label for="f-sup">Supervising adult</label><select id="f-sup" name="supervisor_id" required>${supOpts}</select></div>
         </div>
-        <div class="field">
-          <label for="date">Date</label>
-          <input id="date" name="date" type="date" value="${today()}" required />
+        <div class="grid two">
+          <div class="field"><label for="f-date">Date</label><input id="f-date" name="date" type="date" value="${today()}" required /></div>
+          <div class="field"><label for="f-min">Minutes</label><input id="f-min" name="minutes" type="number" min="1" placeholder="60" required /></div>
         </div>
-      </div>
-      <div class="field">
-        <label for="location">Location</label>
-        <input id="location" name="location" placeholder="Home, clubhouse, chapter hall" />
-      </div>
-      <div class="field">
-        <label for="notes">Notes</label>
-        <textarea id="notes" name="notes" placeholder="Theme, headcount, arrival window"></textarea>
-      </div>
-      <div class="field">
-        <label>Dish slots</label>
-        <div class="slot-builder">
-          ${draftSlots.map((s, i) => `
-            <div class="slot-row">
-              <input data-draft="${i}" data-field="name" value="${esc(s.name)}" placeholder="Dish category" />
-              <input data-draft="${i}" data-field="capacity" type="number" min="1" value="${esc(String(s.capacity))}" aria-label="Capacity" />
-              <button class="btn btn-ghost btn-sm" type="button" data-remove-draft="${i}">Remove</button>
-            </div>
-          `).join("")}
+        <div class="grid two">
+          <div class="field"><label for="f-night">Night minutes</label><input id="f-night" name="night_minutes" type="number" min="0" value="0" /></div>
+          <div class="field"><label for="f-weather">Weather</label><select id="f-weather" name="weather">${WEATHER.map(w => `<option value="${w}">${w}</option>`).join("")}</select></div>
         </div>
-      </div>
-      <div class="actions">
-        <button class="btn btn-ghost" type="button" data-add-slot>Add slot</button>
-        <button class="btn" type="submit">Create potluck</button>
-      </div>
-    </form>
-  `;
+        <div class="field"><label for="f-road">Road type</label><select id="f-road" name="road">${ROAD.map(r => `<option value="${r}">${r}</option>`).join("")}</select></div>
+        <div class="field"><label for="f-notes">Notes</label><textarea id="f-notes" name="notes" placeholder="Conditions, skills practiced…"></textarea></div>
+        <div class="actions"><button class="btn" type="submit">Log drive</button></div>
+      </form>
+    </details>`;
 }
 
 function render() {
   const root = document.getElementById("root");
   root.className = "app";
-  root.innerHTML = selectedEventId ? renderDetail() : view === "create" ? renderCreate() : renderList();
+  const list = driverDrives(selectedDriverId);
+  root.innerHTML = `
+    <div class="topbar">
+      <div><h1>Driving Practice Log</h1><p class="muted tiny">Supervised hours, countersigned & DMV-ready.</p></div>
+      <div class="actions">${renderDriverPicker()}<button class="btn btn-ghost btn-sm" data-refresh>Refresh</button></div>
+    </div>
+    ${renderMessages()}
+    ${renderProgress()}
+    ${renderLogForm()}
+    <section class="card">
+      <h2>Drives</h2>
+      ${list.length ? list.map(renderDrive).join("") : `<div class="empty">No drives logged for ${esc(memberName(selectedDriverId))} yet.</div>`}
+    </section>`;
 }
 
 document.addEventListener("click", (event) => {
-  const target = event.target.closest("button, [data-open-event]");
-  if (!target) return;
-  const openId = target.getAttribute("data-open-event");
-  if (openId) { selectedEventId = openId; clearMessages(); render(); return; }
-  if (target.matches("[data-back], [data-view-list]")) { selectedEventId = null; view = "upcoming"; clearMessages(); render(); return; }
-  if (target.matches("[data-view-create]")) { view = "create"; clearMessages(); render(); return; }
-  if (target.matches("[data-refresh]")) { refresh(); return; }
-  if (target.matches("[data-add-slot]")) { addDraftSlot(); return; }
-  if (target.hasAttribute("data-remove-draft")) { removeDraft(Number(target.getAttribute("data-remove-draft"))); return; }
-  if (target.hasAttribute("data-claim")) { claimSlot(target.getAttribute("data-claim")); return; }
-  if (target.hasAttribute("data-swap")) { swapTo(target.getAttribute("data-swap")); return; }
-  if (target.hasAttribute("data-release")) { releaseClaim(target.getAttribute("data-release")); return; }
-  if (target.hasAttribute("data-archive")) { archiveEvent(target.getAttribute("data-archive")); return; }
+  const t = event.target.closest("button");
+  if (!t) return;
+  if (t.matches("[data-refresh]")) { refresh(); return; }
+  if (t.matches("[data-export]")) { exportCsv(); return; }
+  if (t.hasAttribute("data-edit-goal")) { openGoalModal(t.getAttribute("data-edit-goal")); return; }
+  if (t.hasAttribute("data-sign")) { sign(t.getAttribute("data-sign")); return; }
+  if (t.hasAttribute("data-withdraw")) { withdraw(t.getAttribute("data-withdraw")); return; }
+  if (t.hasAttribute("data-note")) { addNote(t.getAttribute("data-note")); return; }
+  if (t.hasAttribute("data-void")) { voidDrive(t.getAttribute("data-void")); return; }
+  if (t.matches("[data-modal-cancel]")) { closeModal(); return; }
+  if (t.hasAttribute("data-modal-note")) { submitNote(t.getAttribute("data-modal-note"), modalEl?.querySelector("#m-note")?.value); return; }
+  if (t.hasAttribute("data-modal-goal")) {
+    const id = t.getAttribute("data-modal-goal");
+    saveGoal(id, modalEl?.querySelector("#m-total")?.value, modalEl?.querySelector("#m-night")?.value); return;
+  }
 });
-
-document.addEventListener("input", (event) => {
-  const input = event.target.closest("[data-draft]");
-  if (!input) return;
-  updateDraft(Number(input.getAttribute("data-draft")), input.getAttribute("data-field"), input.value);
+document.addEventListener("change", (event) => {
+  const p = event.target.closest("[data-driver-picker]");
+  if (p) { selectedDriverId = p.value; loadGoal(selectedDriverId).then(render); render(); }
 });
-
 document.addEventListener("submit", (event) => {
-  if (event.target.id !== "create-form") return;
+  if (event.target.id !== "log-form") return;
   event.preventDefault();
-  createEvent(event.target);
+  logDrive(event.target);
 });
 
 refresh();

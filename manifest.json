@@ -1,47 +1,105 @@
 {
-  "id": "potluck",
-  "name": "Potluck",
+  "id": "driving-log",
+  "name": "Driving Practice Log",
   "version": "1.0.0",
-  "description": "Create gatherings with dish slots and let members claim, swap, and release dishes without overbooking a category.",
+  "description": "Teen learner's-permit practice log. Record supervised drives with conditions (night, weather, road type), have a parent countersign each entry, and track progress toward the state's required hours — exportable for the DMV.",
   "entrypoint": "index.html",
   "runtime": "static",
   "category": "family",
-  "tags": ["food", "events", "potluck", "slot-claims"],
+  "tags": ["driving", "teen", "learner-permit", "agreements", "append-only", "dmv"],
   "data_access": {
     "reads": ["family.members"],
-    "writes": ["family.members"]
+    "writes": []
   },
   "permissions": {
     "default_audience": "everyone",
     "requires_approval": false
   },
   "storage": "db",
+  "db_plaintext_columns": ["date"],
   "row_policies": {
-    "events": {
-      "kind": "adult_writable"
+    "drives": {
+      "kind": "endpoint_only",
+      "read": "everyone"
     },
-    "slots": {
-      "kind": "adult_writable"
+    "certifications": {
+      "kind": "endpoint_only",
+      "read": "everyone"
     },
-    "claims": {
+    "notes": {
+      "kind": "endpoint_only",
+      "read": "everyone"
+    },
+    "goals": {
       "kind": "owner_only",
       "member_column": "member_id",
-      "adults_bypass": true,
-      "unique_per_member": {
-        "member_column": "member_id",
-        "scope_columns": ["event_id", "slot_id"]
+      "adults_bypass": true
+    }
+  },
+  "append_only_records": {
+    "drives": {
+      "table": "drives",
+      "allowed_columns": ["driver_id", "supervisor_id", "date", "minutes", "night_minutes", "weather", "road", "notes"],
+      "writer_column": "created_by",
+      "created_at_column": "created_at",
+      "allowed_values": {
+        "weather": ["clear", "rain", "snow", "fog", "wind"],
+        "road": ["residential", "city", "rural", "highway", "freeway"]
+      },
+      "max_text_lengths": {
+        "driver_id": 120,
+        "supervisor_id": 120,
+        "date": 20,
+        "weather": 20,
+        "road": 20,
+        "notes": 1000
+      }
+    },
+    "notes": {
+      "table": "notes",
+      "parent_table": "drives",
+      "parent_fk_column": "drive_id",
+      "allowed_columns": ["drive_id", "kind", "body"],
+      "writer_column": "created_by",
+      "created_at_column": "created_at",
+      "write_acl": { "require_role": "adult" },
+      "allowed_values": {
+        "kind": ["note", "void"]
+      },
+      "max_text_lengths": {
+        "drive_id": 120,
+        "kind": 20,
+        "body": 1000
       }
     }
   },
-  "publishes": ["potluck.event_created", "potluck.slot_claimed", "potluck.slot_released"],
-  "nav": { "label": "Potluck" },
+  "agreements": {
+    "certifications": {
+      "participant_columns": ["driver_id", "supervisor_id"],
+      "agreement_columns": { "driver_id": "driver_attested", "supervisor_id": "supervisor_signed" },
+      "status_column": "status",
+      "pending_value": "pending",
+      "locked_value": "locked",
+      "locked_at_column": "locked_at",
+      "updated_at_column": "updated_at",
+      "init_from_table": "drives",
+      "init_columns": ["driver_id", "supervisor_id"]
+    }
+  },
+  "publish_acls": {
+    "driving-log.certified": { "require_role": "adult" }
+  },
+  "publishes": ["driving-log.logged", "driving-log.certified"],
+  "alert_on": ["driving-log.certified"],
+  "nav": { "label": "Driving Log" },
+  "widget": { "label": "Driving Log", "size": "small" },
   "resource_limits": {
     "max_db_bytes": 52428800
   },
-  "icon": "🍽️",
+  "icon": "🚙",
   "ai_access": {
     "allowed": true,
     "mode": "read",
-    "db_exports": ["upcoming_potlucks", "claim_summary"]
+    "db_exports": ["drive_log"]
   }
 }
