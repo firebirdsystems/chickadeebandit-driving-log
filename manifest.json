@@ -7,6 +7,7 @@
   "runtime": "static",
   "category": "family",
   "tags": ["driving", "teen", "learner-permit", "agreements", "append-only", "dmv"],
+  "contexts": ["household", "shared_space"],
   "data_access": {
     "reads": ["family.members"],
     "writes": []
