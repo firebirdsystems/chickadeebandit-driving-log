@@ -60,6 +60,13 @@
     .empty, .loading { color: var(--muted); text-align: center; padding: 32px 16px; }
     .error { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
     .notice { background: var(--green-soft); color: var(--green); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
+    .search-row { margin-bottom: 12px; }
+    .search-input {
+      width: 100%; border: 1.5px solid var(--border-mid, var(--border, #d1d5db));
+      border-radius: 8px; padding: 9px 11px; font: inherit;
+      background: var(--surface, var(--card, #fff)); color: var(--text, inherit);
+    }
+    .search-input:focus { outline: none; border-color: var(--accent, #6366f1); }
   </style>
   <base href="/run/driving-log/">
 </head>
@@ -67,10 +74,10 @@
 <div class="app"><div id="root" class="loading">Loading…</div></div>
 
 <script type="module">
-import { esc, hubConfirm, hubAlert, sendHubNotification, hubAppUrl } from "/hub-sdk.js";
+import { esc, hubConfirm, hubAlert, sendHubNotification, hubAppUrl, searchMatch } from "/hub-sdk.js";
 import {
   canSupervise as _canSupervise, isCertified, certState as _certState, isVoided,
-  fmtDuration, computeProgress, buildCsv, DEFAULT_GOAL,
+  fmtDuration, computeProgress, buildCsv, DEFAULT_GOAL, searchableFields,
 } from "./logic.js";
 
 const CONTEXT     = window.__CONTEXT_URL       ?? "";
@@ -91,6 +98,7 @@ let certById = new Map();
 let notes = [];
 let goalsByMember = new Map();
 let selectedDriverId = null;
+let searchQ = "";       // in-app search (see logic.js searchableFields)
 let error = "", notice = "";
 
 function canSupervise() { return _canSupervise(currentMember); }
@@ -486,6 +494,16 @@ function renderLogForm() {
     </details>`;
 }
 
+// Owns the filtering and the empty states, so the keystroke handler can refresh
+// the list without repeating how it is derived.
+function renderDriveList() {
+  const list = driverDrives(selectedDriverId);
+  const shown = searchQ ? list.filter(d => searchMatch(searchQ, searchableFields(d))) : list;
+  if (shown.length) return shown.map(renderDrive).join("");
+  if (searchQ) return `<div class="empty">No drives match "${esc(searchQ)}".</div>`;
+  return `<div class="empty">No drives logged for ${esc(memberName(selectedDriverId))} yet.</div>`;
+}
+
 function render() {
   const root = document.getElementById("root");
   root.className = "app";
@@ -500,9 +518,18 @@ function render() {
     ${renderLogForm()}
     <section class="card">
       <h2>Drives</h2>
-      ${list.length ? list.map(renderDrive).join("") : `<div class="empty">No drives logged for ${esc(memberName(selectedDriverId))} yet.</div>`}
+      ${list.length ? `<div class="search-row"><input id="search" class="search-input" type="search" placeholder="Search drives…" aria-label="Search drives" value="${esc(searchQ)}" /></div>` : ""}
+      <div id="drive-list">${renderDriveList()}</div>
     </section>`;
 }
+
+// Re-render only the list on each keystroke so the search box keeps focus.
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "search") return;
+  searchQ = e.target.value;
+  const el = document.getElementById("drive-list");
+  if (el) el.innerHTML = renderDriveList();
+});
 
 document.addEventListener("click", (event) => {
   const t = event.target.closest("button");

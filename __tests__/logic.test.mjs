@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  canSupervise, isCertified, isVoided, fmtDuration, computeProgress, certState, buildCsv, DEFAULT_GOAL,
+  canSupervise, isCertified, isVoided, fmtDuration, computeProgress, certState, buildCsv, DEFAULT_GOAL, searchableFields,
 } from "../src/logic.js";
 
 describe("canSupervise mirrors adult write_acl", () => {
@@ -89,5 +89,14 @@ describe("buildCsv", () => {
     expect(lines[0]).toMatch(/^Date,Driver/);
     expect(lines).toHaveLength(2);                 // header + d1 only
     expect(lines[1]).toContain('"Teen, ""T"""');   // CSV-escaped
+  });
+});
+
+describe("searchableFields", () => {
+  it("matches on conditions, which is how a practice log gets reviewed", () => {
+    const fields = searchableFields({ date: "2026-03-04", weather: "rain", road: "highway", notes: "first motorway merge" });
+    expect(fields).toContain("rain");
+    expect(fields).toContain("highway");
+    expect(fields).toContain("first motorway merge");
   });
 });

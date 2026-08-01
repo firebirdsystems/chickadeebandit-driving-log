@@ -81,3 +81,12 @@ function csvCell(v) {
   const s = String(v ?? "");
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
+
+/**
+ * Fields the in-app search matches against (see hub-sdk `searchMatch`).
+ * Weather and road type are searchable because a DMV log is reviewed
+ * by condition — "how much night driving in rain" — not by date alone.
+ */
+export function searchableFields(item) {
+  return [item.date, item.weather, item.road, item.notes];
+}
