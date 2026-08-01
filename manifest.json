@@ -87,8 +87,44 @@
       "init_columns": ["driver_id", "supervisor_id"]
     }
   },
+  "member_references": {
+    "drives": [
+      {
+        "column": "created_by",
+        "on_removed": "keep"
+      },
+      {
+        "column": "driver_id",
+        "on_removed": "keep"
+      },
+      {
+        "column": "supervisor_id",
+        "on_removed": "keep"
+      }
+    ],
+    "notes": {
+      "column": "created_by",
+      "on_removed": "keep"
+    },
+    "goals": {
+      "column": "member_id",
+      "on_removed": "delete",
+      "id_column": "member_id"
+    },
+    "certifications": [
+      {
+        "column": "driver_id",
+        "on_removed": "keep"
+      },
+      {
+        "column": "supervisor_id",
+        "on_removed": "keep"
+      }
+    ]
+  },
   "publish_acls": {
-    "driving-log.certified": { "require_role": "adult" }
+    "driving-log.certified": { "require_role": "adult" },
+    "driving-log.logged": { "require_role": "member" }
   },
   "publishes": ["driving-log.logged", "driving-log.certified"],
   "alert_on": ["driving-log.certified"],
