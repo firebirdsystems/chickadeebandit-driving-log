@@ -128,6 +128,18 @@
   },
   "publishes": ["driving-log.logged", "driving-log.certified"],
   "alert_on": ["driving-log.certified"],
+  "glance": {
+    "source": {
+      "kind": "sql",
+      "query": "SELECT COUNT(*) AS n FROM app_driving_log__certifications WHERE status = 'pending' AND ((driver_id = :me AND driver_attested = 0) OR (supervisor_id = :me AND supervisor_signed = 0)) LIMIT 1"
+    },
+    "display": {
+      "template": "badge",
+      "count": "n",
+      "label": "drives waiting for your signature",
+      "severity": "warn"
+    }
+  },
   "nav": { "label": "Driving Log" },
   "widget": { "label": "Driving Log", "size": "small" },
   "resource_limits": {
