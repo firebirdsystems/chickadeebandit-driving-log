@@ -77,9 +77,34 @@ export function buildCsv(drives, certById, notes, nameFn) {
   }
   return rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
 }
-function csvCell(v) {
+/**
+ * Leading characters that make a spreadsheet treat a cell as a formula rather
+ * than text. Tab and CR are included because Excel strips them before parsing,
+ * so `\t=cmd` reaches the formula parser as `=cmd`.
+ *
+ * Kept character-for-character identical to the hub's own export guard
+ * (cloudflare/reports.ts) — one product must not neutralise the same attack
+ * two different ways.
+ */
+const CSV_FORMULA_LEAD = /^[=+\-@\t\r]/;
+
+/**
+ * One CSV cell: formula-neutralised, then quoted only where CSV requires it.
+ *
+ * Quoting is not a defence on its own — a quoted field beginning with a
+ * formula lead-in is still handed to the formula parser when the file opens.
+ * This export matters more than most: it is a DMV-ready log that LEAVES the
+ * household, so the cell that executes may do so on an examiner's or
+ * insurer's machine, and the values are free text (weather, road) plus member
+ * names. A leading apostrophe is the spreadsheet's own "treat as text" marker.
+ *
+ * Exported so the guard is directly testable — a defence with no test of its
+ * own is one refactor from silently reverting.
+ */
+export function csvCell(v) {
   const s = String(v ?? "");
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  const guarded = CSV_FORMULA_LEAD.test(s) ? `'${s}` : s;
+  return /[",\r\n]/.test(guarded) ? `"${guarded.replace(/"/g, '""')}"` : guarded;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  canSupervise, isCertified, isVoided, fmtDuration, computeProgress, certState, buildCsv, DEFAULT_GOAL, searchableFields,
+  canSupervise, isCertified, isVoided, fmtDuration, computeProgress, certState, buildCsv, csvCell, DEFAULT_GOAL, searchableFields,
 } from "../src/logic.js";
 
 describe("canSupervise mirrors adult write_acl", () => {
@@ -89,6 +89,45 @@ describe("buildCsv", () => {
     expect(lines[0]).toMatch(/^Date,Driver/);
     expect(lines).toHaveLength(2);                 // header + d1 only
     expect(lines[1]).toContain('"Teen, ""T"""');   // CSV-escaped
+  });
+
+  // This file leaves the household — a DMV examiner or insurer opens it — so a
+  // formula smuggled through a member name or a weather note would execute on
+  // their machine, not ours. Quoting does not stop that; the apostrophe does.
+  it("neutralises a formula smuggled in through a member name", () => {
+    const hostile = (id) => (id === "t" ? `=cmd|' /C calc'!A0` : "Parent");
+    const csv = buildCsv(drives, certs, [], hostile);
+    const cells = csv.split("\r\n")[1].split(",");
+    expect(cells.some(c => c.startsWith("=") || c.startsWith('"='))).toBe(false);
+    // No comma or quote in the payload, so CSV quoting never triggers — the
+    // apostrophe is doing all the work, which is exactly the point.
+    expect(csv).toContain(`'=cmd|' /C calc'!A0`);
+  });
+});
+
+describe("csvCell", () => {
+  it("neutralises every formula lead-in a spreadsheet acts on", () => {
+    expect(csvCell("=1+1")).toBe("'=1+1");
+    expect(csvCell("+1")).toBe("'+1");
+    expect(csvCell("-1")).toBe("'-1");
+    expect(csvCell("@SUM(A1)")).toBe("'@SUM(A1)");
+    // Excel strips a leading tab/CR before parsing, so both smuggle a formula
+    // past a naive "starts with =" check. Only the CR needs CSV quoting.
+    expect(csvCell("\t=cmd")).toBe("'\t=cmd");
+    expect(csvCell("\r=cmd")).toBe(`"'\r=cmd"`);
+  });
+
+  it("still quotes and escapes what CSV itself requires", () => {
+    expect(csvCell('He said "hi"')).toBe('"He said ""hi"""');
+    expect(csvCell("Smith, Dana")).toBe('"Smith, Dana"');
+    // A dangerous cell that also contains a comma needs both defences.
+    expect(csvCell("=A1,B2")).toBe(`"'=A1,B2"`);
+  });
+
+  it("leaves ordinary values untouched", () => {
+    expect(csvCell("clear")).toBe("clear");
+    expect(csvCell("60")).toBe("60");
+    expect(csvCell(null)).toBe("");
   });
 });
 
