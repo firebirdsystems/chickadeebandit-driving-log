@@ -1,6 +1,6 @@
 {
   "name": "chickadeebandit-driving-log",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Teen driving practice log for Chickadee Bandit",
   "type": "module",
   "scripts": {

@@ -1,7 +1,7 @@
 {
   "id": "driving-log",
   "name": "Driving Practice Log",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Teen learner's-permit practice log. Record supervised drives with conditions (night, weather, road type), have a parent countersign each entry, and track progress toward the state's required hours — exportable for the DMV.",
   "entrypoint": "index.html",
   "runtime": "static",
@@ -17,7 +17,7 @@
     "requires_approval": false
   },
   "storage": "db",
-  "db_plaintext_columns": ["date"],
+  "db_plaintext_columns": ["date", "weather", "road", "kind"],
   "row_policies": {
     "drives": {
       "kind": "endpoint_only",
