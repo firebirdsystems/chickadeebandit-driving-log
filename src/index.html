@@ -12,8 +12,8 @@
       --text: var(--hub-text, #000000); --muted: var(--hub-text-muted, #6b7280);
       --accent: var(--hub-primary, #111827); --accent-hover: var(--hub-primary-hover, #374151);
       --accent-fg: var(--hub-primary-fg, #ffffff); --radius: var(--hub-radius, 8px);
-      --green: #047857; --green-soft: #d1fae5; --amber: #b45309; --amber-soft: #fef3c7;
-      --red: #b91c1c; --red-soft: #fee2e2; --blue-soft: #dbeafe;
+      --green: var(--hub-tint-success-fg, #047857); --green-soft: var(--hub-tint-success, #d1fae5); --amber: var(--hub-tint-warning-fg, #b45309); --amber-soft: var(--hub-tint-warning, #fef3c7);
+      --red: var(--hub-tint-danger-fg, #b91c1c); --red-soft: var(--hub-tint-danger, #fee2e2); --blue-soft: var(--hub-tint-info, #dbeafe);
       --shadow: 0 1px 3px rgba(15, 23, 42, .07);
     }
     body { min-height: 100vh; background: var(--bg); color: var(--text);
@@ -28,18 +28,18 @@
     .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
     .meta { margin-top: 3px; color: var(--muted); font-size: .82rem; }
     .bar-label { display: flex; justify-content: space-between; font-size: .82rem; font-weight: 700; margin-bottom: 4px; }
-    .progress { height: 12px; overflow: hidden; border-radius: 999px; background: #eef2f7; }
+    .progress { height: 12px; overflow: hidden; border-radius: 999px; background: var(--bg); }
     .progress > span { display: block; height: 100%; background: var(--green); border-radius: 999px; transition: width .3s; }
     .progress.night > span { background: #4338ca; }
-    .pill { display: inline-flex; align-items: center; justify-content: center; min-height: 22px; padding: 2px 8px; border-radius: 999px; background: #f1f5f9; color: var(--muted); font-size: .72rem; font-weight: 700; white-space: nowrap; }
+    .pill { display: inline-flex; align-items: center; justify-content: center; min-height: 22px; padding: 2px 8px; border-radius: 999px; background: var(--bg); color: var(--muted); font-size: .72rem; font-weight: 700; white-space: nowrap; }
     .pill.good { background: var(--green-soft); color: var(--green); }
     .pill.warn { background: var(--amber-soft); color: var(--amber); }
-    .pill.info { background: var(--blue-soft); color: #1d4ed8; }
+    .pill.info { background: var(--blue-soft); color: var(--hub-tint-info-fg, #1d4ed8); }
     .pill.bad { background: var(--red-soft); color: var(--red); }
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid transparent; border-radius: 8px; padding: 8px 12px; font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer; min-height: 38px; background: var(--accent); color: var(--accent-fg); }
     .btn:hover { background: var(--accent-hover); } .btn:disabled { opacity: .48; cursor: default; }
     .btn-ghost { background: transparent; color: var(--text); border-color: var(--border-mid); }
-    .btn-ghost:hover { background: #f8fafc; }
+    .btn-ghost:hover { background: var(--bg); }
     .btn-danger { background: var(--red-soft); color: var(--red); border-color: transparent; }
     .btn-quiet-danger { min-height: 28px; padding: 3px 6px; background: transparent; color: var(--muted); border: 0; font-size: .76rem; font-weight: 700; }
     .btn-quiet-danger:hover { background: var(--red-soft); color: var(--red); }
