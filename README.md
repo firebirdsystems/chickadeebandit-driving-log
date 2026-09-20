@@ -1,5 +1,7 @@
 # Driving Practice Log
 
+A [Chickadee Bandit](https://chickadeebandit.com/app-library/driving-log) app.
+
 A learner's-permit practice log for the Chickadee Bandit family tier. Most US states
 require 40–60 supervised hours before a road test; this app records each supervised
 drive, has a parent **countersign** it, tracks progress toward the state requirement,
