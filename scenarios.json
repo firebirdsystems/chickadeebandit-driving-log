@@ -1,0 +1,196 @@
+{
+  "scenarios": [
+    {
+      "name": "logged drives are append-only: everyone reads them, but no member can insert, edit, or delete one with raw SQL",
+      "members": { "teen": "child", "parent": "adult" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_driving_log__drives (id, driver_id, supervisor_id, date, minutes, night_minutes, weather, road, notes, created_by, created_at) VALUES ('d1', ?, ?, '2026-01-05', 45, 15, 'clear', 'city', 'First city drive', ?, '2026-01-05T18:00:00Z')",
+          "params": ["{{teen}}", "{{parent}}", "{{teen}}"]
+        },
+        {
+          "action": "db",
+          "as": "teen",
+          "sql": "SELECT id, minutes FROM app_driving_log__drives",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "d1", "minutes": 45 }] }
+        },
+        {
+          "action": "db",
+          "as": "parent",
+          "sql": "SELECT id FROM app_driving_log__drives",
+          "expect": { "status": 200, "rowCount": 1 }
+        },
+        {
+          "action": "db",
+          "as": "teen",
+          "sql": "INSERT INTO app_driving_log__drives (id, driver_id, supervisor_id, date, minutes, night_minutes, weather, road, notes, created_by, created_at) VALUES ('d2', ?, ?, '2026-01-06', 600, 600, 'clear', 'highway', 'x', ?, '2026-01-06T18:00:00Z')",
+          "params": ["{{teen}}", "{{parent}}", "{{teen}}"],
+          "expect": { "status": 403, "errorIncludes": "endpoint" }
+        },
+        {
+          "action": "db",
+          "as": "teen",
+          "sql": "UPDATE app_driving_log__drives SET minutes = 600 WHERE id = 'd1'",
+          "expect": { "status": 403, "errorIncludes": "endpoint" }
+        },
+        {
+          "action": "db",
+          "as": "parent",
+          "sql": "DELETE FROM app_driving_log__drives WHERE id = 'd1'",
+          "expect": { "status": 403, "errorIncludes": "endpoint" }
+        },
+        {
+          "action": "db",
+          "as": "parent",
+          "sql": "SELECT id, minutes FROM app_driving_log__drives",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "d1", "minutes": 45 }] }
+        }
+      ]
+    },
+    {
+      "name": "neither party can forge a countersignature or an adult void note through raw SQL",
+      "members": { "teen": "child", "parent": "adult" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_driving_log__drives (id, driver_id, supervisor_id, date, minutes, night_minutes, weather, road, notes, created_by, created_at) VALUES ('d1', ?, ?, '2026-01-05', 45, 0, 'clear', 'city', '', ?, '2026-01-05T18:00:00Z')",
+          "params": ["{{teen}}", "{{parent}}", "{{teen}}"]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_driving_log__certifications (id, driver_id, supervisor_id, driver_attested, supervisor_signed, status, updated_at) VALUES ('d1', ?, ?, 1, 0, 'pending', '2026-01-05T18:00:00Z')",
+          "params": ["{{teen}}", "{{parent}}"]
+        },
+        {
+          "action": "db",
+          "as": "teen",
+          "sql": "UPDATE app_driving_log__certifications SET supervisor_signed = 1, status = 'locked' WHERE id = 'd1'",
+          "expect": { "status": 403, "errorIncludes": "endpoint" }
+        },
+        {
+          "action": "db",
+          "as": "teen",
+          "sql": "SELECT id, status, supervisor_signed FROM app_driving_log__certifications",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "d1", "status": "pending", "supervisor_signed": 0 }] }
+        },
+        {
+          "action": "db",
+          "as": "parent",
+          "sql": "INSERT INTO app_driving_log__notes (id, drive_id, kind, body, created_by, created_at) VALUES ('n1', 'd1', 'void', 'mistake', ?, '2026-01-06T00:00:00Z')",
+          "params": ["{{parent}}"],
+          "expect": { "status": 403, "errorIncludes": "endpoint" }
+        },
+        {
+          "action": "db",
+          "as": "teen",
+          "sql": "SELECT id FROM app_driving_log__notes",
+          "expect": { "status": 200, "rowCount": 0 }
+        }
+      ]
+    },
+    {
+      "name": "a teen sees and edits only their own hours goal; an adult sees and sets every driver's",
+      "members": { "teenA": "child", "teenB": "child", "parent": "adult" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_driving_log__goals (member_id, total_minutes, night_minutes, updated_at) VALUES (?, 3000, 600, '2026-01-01T00:00:00Z'), (?, 3600, 600, '2026-01-01T00:00:00Z')",
+          "params": ["{{teenA}}", "{{teenB}}"]
+        },
+        {
+          "action": "db",
+          "as": "teenA",
+          "sql": "SELECT member_id, total_minutes FROM app_driving_log__goals",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "total_minutes": 3000 }] }
+        },
+        {
+          "action": "db",
+          "as": "teenA",
+          "sql": "UPDATE app_driving_log__goals SET total_minutes = 1 WHERE member_id = ?",
+          "params": ["{{teenB}}"]
+        },
+        {
+          "action": "db",
+          "as": "parent",
+          "sql": "SELECT member_id, total_minutes FROM app_driving_log__goals WHERE total_minutes = 3600",
+          "expect": { "status": 200, "rowCount": 1 }
+        },
+        {
+          "action": "db",
+          "as": "teenA",
+          "sql": "UPDATE app_driving_log__goals SET total_minutes = 3300 WHERE member_id = ?",
+          "params": ["{{teenA}}"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "teenA",
+          "sql": "SELECT total_minutes FROM app_driving_log__goals",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "total_minutes": 3300 }] }
+        },
+        {
+          "action": "db",
+          "as": "parent",
+          "sql": "UPDATE app_driving_log__goals SET total_minutes = 2400 WHERE member_id = ?",
+          "params": ["{{teenA}}"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "parent",
+          "sql": "SELECT member_id, total_minutes FROM app_driving_log__goals",
+          "expect": { "status": 200, "rowCount": 2, "rowsContain": [{ "total_minutes": 2400 }, { "total_minutes": 3600 }] }
+        }
+      ]
+    },
+    {
+      "name": "only an adult may announce a certified drive; any member may announce a logged one",
+      "members": { "teen": "child", "parent": "adult" },
+      "steps": [
+        {
+          "action": "publish",
+          "as": "teen",
+          "type": "driving-log.certified",
+          "subject_id": "d1",
+          "payload": { "minutes": 45 },
+          "expect": { "status": 403 }
+        },
+        {
+          "action": "publish",
+          "as": "teen",
+          "type": "driving-log.logged",
+          "subject_id": "d1",
+          "payload": { "minutes": 45 },
+          "expect": { "status": 201 }
+        },
+        {
+          "action": "publish",
+          "as": "parent",
+          "type": "driving-log.certified",
+          "subject_id": "d1",
+          "payload": { "minutes": 45 },
+          "expect": { "status": 201 }
+        }
+      ]
+    },
+    {
+      "name": "the drive_log export returns logged drives, newest first",
+      "members": { "teen": "child", "parent": "adult" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_driving_log__drives (id, driver_id, supervisor_id, date, minutes, night_minutes, weather, road, notes, created_by, created_at) VALUES ('d1', ?, ?, '2026-01-05', 45, 0, 'clear', 'city', '', ?, '2026-01-05T18:00:00Z'), ('d2', ?, ?, '2026-01-09', 60, 30, 'rain', 'highway', '', ?, '2026-01-09T18:00:00Z')",
+          "params": ["{{teen}}", "{{parent}}", "{{teen}}", "{{teen}}", "{{parent}}", "{{teen}}"]
+        },
+        {
+          "action": "named",
+          "as": "parent",
+          "kind": "query",
+          "name": "drive_log",
+          "expect": { "status": 200, "rowCount": 2, "rowsContain": [{ "id": "d2", "weather": "rain", "road": "highway" }, { "id": "d1", "minutes": 45 }] }
+        }
+      ]
+    }
+  ]
+}
