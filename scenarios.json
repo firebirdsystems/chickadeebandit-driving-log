@@ -191,6 +191,61 @@
           "expect": { "status": 200, "rowCount": 2, "rowsContain": [{ "id": "d2", "weather": "rain", "road": "highway" }, { "id": "d1", "minutes": 45 }] }
         }
       ]
+    },
+    {
+      "name": "in a shared space a participant adult sees and sets only their own hours goal, while the steward sees and sets every driver's",
+      "context": "shared_space",
+      "members": { "a": "adult", "b": "adult", "steward": "admin" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_driving_log__goals (member_id, total_minutes, night_minutes, updated_at) VALUES (?, 3000, 600, '2026-01-01T00:00:00Z')",
+          "params": ["{{a}}"]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_driving_log__goals (member_id, total_minutes, night_minutes, updated_at) VALUES (?, 3000, 600, '2026-01-01T00:00:00Z')",
+          "params": ["{{b}}"]
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT member_id FROM app_driving_log__goals",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "member_id": "scn-a" }] }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "UPDATE app_driving_log__goals SET total_minutes = 60 WHERE member_id = ?",
+          "params": ["{{b}}"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "b",
+          "sql": "SELECT total_minutes FROM app_driving_log__goals",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "total_minutes": 3000 }] }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "SELECT member_id FROM app_driving_log__goals ORDER BY member_id",
+          "expect": { "status": 200, "rowCount": 2 }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "UPDATE app_driving_log__goals SET total_minutes = 3600 WHERE member_id = ?",
+          "params": ["{{b}}"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "b",
+          "sql": "SELECT total_minutes FROM app_driving_log__goals",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "total_minutes": 3600 }] }
+        }
+      ]
     }
   ]
 }
