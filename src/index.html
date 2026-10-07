@@ -74,7 +74,7 @@
 <div class="app"><div id="root" class="loading">Loading…</div></div>
 
 <script type="module">
-import { esc, hubConfirm, hubAlert, sendHubNotification, hubAppUrl, searchMatch } from "/hub-sdk.js";
+import { esc, hubConfirm, hubAlert, sendHubNotification, hubAppUrl, searchMatch, glyph } from "/hub-sdk.js";
 import {
   canSupervise as _canSupervise, isCertified, certState as _certState, isVoided,
   fmtDuration, computeProgress, buildCsv, DEFAULT_GOAL, searchableFields,
@@ -401,7 +401,7 @@ function renderProgress() {
     <section class="card stack">
       <div class="head">
         <div>
-          <h2 style="margin-bottom:2px;">Progress ${p.complete ? `<span class="pill good">Goal met 🎉</span>` : ""}</h2>
+          <h2 style="margin-bottom:2px;">Progress ${p.complete ? `<span class="pill good">${glyph("trophy", { accent: "currentColor" })} Goal met</span>` : ""}</h2>
           <div class="meta">${p.certifiedCount} certified · ${p.pendingCount} awaiting signature</div>
         </div>
         <div class="actions">
@@ -433,7 +433,7 @@ function condBadges(d) {
   return out.join("");
 }
 function certBadge(state) {
-  if (state === "certified") return `<span class="pill good">Certified ✓</span>`;
+  if (state === "certified") return `<span class="pill good">Certified ${glyph("tick", { accent: "currentColor" })}</span>`;
   if (state === "voided") return `<span class="pill bad">Voided</span>`;
   if (state === "awaiting") return `<span class="pill warn">Awaiting signature</span>`;
   return `<span class="pill">Unsigned</span>`;
