@@ -150,5 +150,16 @@
     "allowed": true,
     "mode": "read",
     "db_exports": ["drive_log"]
+  },
+  "preload": {
+    "drives": {
+      "sql": "SELECT * FROM app_driving_log__drives ORDER BY date DESC"
+    },
+    "certifications": {
+      "sql": "SELECT * FROM app_driving_log__certifications"
+    },
+    "notes": {
+      "sql": "SELECT * FROM app_driving_log__notes ORDER BY created_at ASC"
+    }
   }
 }
