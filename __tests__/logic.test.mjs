@@ -1,11 +1,58 @@
 import { describe, it, expect } from "vitest";
 import {
-  canSupervise, isCertified, isVoided, fmtDuration, computeProgress, certState, buildCsv, csvCell, DEFAULT_GOAL, searchableFields,
+  canSupervise, supervisesGoals, canAccessGoal, isCertified, isVoided, fmtDuration, computeProgress, certState, buildCsv, csvCell, DEFAULT_GOAL, searchableFields,
 } from "../src/logic.js";
 
 describe("canSupervise mirrors adult write_acl", () => {
   it("adults can", () => expect(canSupervise({ role: "adult" })).toBe(true));
   it("children cannot", () => expect(canSupervise({ role: "child" })).toBe(false));
+});
+
+describe("supervisesGoals mirrors owner_only adults_bypass", () => {
+  const adult = { id: "a", role: "adult" };
+  const child = { id: "c", role: "child" };
+  const space = { tenantKind: "shared_space", spaceKind: "general" };
+
+  it("is any adult in a household, and the default", () => {
+    expect(supervisesGoals(adult)).toBe(true);
+    expect(supervisesGoals(adult, { tenantKind: "household", isAdmin: false })).toBe(true);
+    expect(supervisesGoals(child)).toBe(false);
+    expect(supervisesGoals(null)).toBe(false);
+  });
+  it("is not an adult who merely takes part in a shared space", () => {
+    expect(supervisesGoals(adult, { ...space, isAdmin: false })).toBe(false);
+  });
+  it("is the steward of a shared space, co-parenting included", () => {
+    expect(supervisesGoals(adult, { ...space, isAdmin: true })).toBe(true);
+    expect(supervisesGoals(adult, { tenantKind: "shared_space", spaceKind: "coparenting", isAdmin: true })).toBe(true);
+  });
+  it("ignores a household admin flag on a child", () => {
+    expect(supervisesGoals(child, { tenantKind: "household", isAdmin: true })).toBe(false);
+  });
+});
+
+describe("canAccessGoal", () => {
+  const adult = { id: "a", role: "adult" };
+  const child = { id: "c", role: "child" };
+  const participant = { tenantKind: "shared_space", spaceKind: "general", isAdmin: false };
+  const steward = { tenantKind: "shared_space", spaceKind: "general", isAdmin: true };
+
+  it("always allows a driver's own goal", () => {
+    expect(canAccessGoal("c", child)).toBe(true);
+    expect(canAccessGoal("a", adult, participant)).toBe(true);
+  });
+  it("allows another driver's goal to a household adult and to a space steward", () => {
+    expect(canAccessGoal("c", adult)).toBe(true);
+    expect(canAccessGoal("c", adult, steward)).toBe(true);
+  });
+  it("refuses another driver's goal to a child and to a space participant", () => {
+    expect(canAccessGoal("a", child)).toBe(false);
+    expect(canAccessGoal("c", adult, participant)).toBe(false);
+  });
+  it("refuses when there is no member or no driver", () => {
+    expect(canAccessGoal("c", null)).toBe(false);
+    expect(canAccessGoal(null, adult)).toBe(false);
+  });
 });
 
 describe("isCertified", () => {

@@ -58,6 +58,8 @@
     .grid.two { display: grid; gap: 10px; } @media (min-width: 640px) { .grid.two { grid-template-columns: 1fr 1fr; } }
     .note-row { font-size: .82rem; padding: 4px 0; border-top: 1px dashed var(--border); }
     .empty, .loading { color: var(--muted); text-align: center; padding: 32px 16px; }
+    .load-error { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; background: var(--hub-tint-danger, #fee2e2); color: var(--hub-tint-danger-fg, #b91c1c); font-size: 0.9rem; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+    .load-error-retry { background: none; border: 1px solid currentColor; border-radius: 8px; padding: 5px 10px; font: inherit; font-weight: 600; color: inherit; cursor: pointer; flex-shrink: 0; }
     .error { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
     .notice { background: var(--green-soft); color: var(--green); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
     .search-row { margin-bottom: 12px; }
@@ -76,7 +78,7 @@
 <script type="module">
 import { esc, hubConfirm, hubAlert, sendHubNotification, hubAppUrl, searchMatch, glyph } from "/hub-sdk.js";
 import {
-  canSupervise as _canSupervise, isCertified, certState as _certState, isVoided,
+  canSupervise as _canSupervise, canAccessGoal, isCertified, certState as _certState, isVoided,
   fmtDuration, computeProgress, buildCsv, DEFAULT_GOAL, searchableFields,
 } from "./logic.js";
 
@@ -86,6 +88,7 @@ const APPEND_URL  = window.__APPEND_RECORD_URL ?? "";
 const EVENTS_URL  = window.__EVENTS_URL         ?? "/api/events";
 const APP_ID      = window.__APP_ID             ?? "driving-log";
 const ME          = window.__CURRENT_MEMBER     ?? null;
+const TENANT      = { tenantKind: window.__TENANT_KIND ?? "household", spaceKind: window.__SPACE_KIND ?? null, isAdmin: window.__IS_ADMIN === true };
 
 const WEATHER = ["clear", "rain", "snow", "fog", "wind"];
 const ROAD = ["residential", "city", "rural", "highway", "freeway"];
@@ -109,7 +112,10 @@ const today = () => new Date().toLocaleDateString("en-CA");
 function memberName(id) { return memberMap.get(id)?.name ?? "Member"; }
 function adultMembers() { return members.filter(m => m.role === "adult"); }
 function goalFor(id) { return goalsByMember.get(id) ?? { ...DEFAULT_GOAL }; }
-function canEditGoal(driverId) { return canSupervise() || currentMember?.id === driverId; }
+// A goal is read and set by its own driver, by any adult in a household, and
+// by the steward in a shared space. For anyone else the hub returns no goal and
+// would store a saved one as their own, so the page neither shows nor offers it.
+function canEditGoal(driverId) { return canAccessGoal(driverId, currentMember, TENANT); }
 function driverDrives(id) { return drives.filter(d => d.driver_id === id).sort((a, b) => b.date.localeCompare(a.date)); }
 function driverIds() {
   const set = new Set(drives.map(d => d.driver_id));
@@ -121,8 +127,8 @@ function fmtDate(v) { return v ? new Intl.DateTimeFormat(undefined, { weekday: "
 async function dbq(sql, params = []) {
   if (!DB) return { rows: [] };
   const res = await fetch(DB, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql, params }) });
-  const json = await res.json();
-  if (json.error) throw new Error(json.error);
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || "Couldn’t reach the hub. Try again.");
   return json;
 }
 async function appendRecord(name, data) {
@@ -130,8 +136,8 @@ async function appendRecord(name, data) {
   const res = await fetch(`${APPEND_URL}/${encodeURIComponent(name)}`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
   });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.error) throw new Error(json.error || "Could not save record.");
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || "Could not save record.");
   return json;
 }
 async function agree(id, agreed) {
@@ -139,8 +145,8 @@ async function agree(id, agreed) {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ table: "certifications", id, agreed }),
   });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.error) throw new Error(json.error || "Signature failed.");
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || "Signature failed.");
   return json;
 }
 function publish(type, subject_id, payload) {
@@ -156,8 +162,11 @@ async function loadMembers() {
       { id: "demo-dad", name: "Jordan", role: "adult" },
     ];
   } else {
-    try { const res = await fetch(`${CONTEXT}?keys=family.members`); members = ((await res.json())["family.members"]) ?? []; }
-    catch { members = []; }
+    // A roster that cannot be read is a failed load, not an empty household.
+    const res = await fetch(`${CONTEXT}?keys=family.members`);
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || typeof json !== "object" || (Array.isArray(json.$errors) && json.$errors.includes("family.members"))) throw new Error("Couldn’t reach the hub. Try again.");
+    members = json["family.members"] ?? [];
   }
   memberMap = new Map(members.map(m => [m.id, m]));
   currentMember = ME ?? members[0] ?? { id: "guest", name: "Guest", role: "adult" };
@@ -190,13 +199,15 @@ async function loadData() {
   notes = noteRows.rows;
 }
 async function loadGoal(driverId) {
-  if (!DB || !driverId) return;
-  try {
-    const { rows } = await dbq("SELECT * FROM app_driving_log__goals WHERE member_id = ?", [driverId]);
-    if (rows[0]) goalsByMember.set(driverId, rows[0]);
-  } catch { /* owner_only may 403 for a non-owner non-adult; default goal is fine */ }
+  if (!DB || !driverId || !canEditGoal(driverId)) return;
+  // Throws when the goal cannot be read: the default is not the stored goal.
+  const { rows } = await dbq("SELECT * FROM app_driving_log__goals WHERE member_id = ?", [driverId]);
+  if (rows[0]) goalsByMember.set(driverId, rows[0]);
 }
 
+// Set while the first load has not succeeded: the drives are unknown, not empty.
+let loadFailed = false;
+let loadedOnce = false;
 async function refresh() {
   clearMessages();
   try {
@@ -205,8 +216,12 @@ async function refresh() {
       selectedDriverId = driverIds().includes(currentMember?.id) ? currentMember.id : (driverIds()[0] ?? currentMember?.id);
     }
     await loadGoal(selectedDriverId);
+    loadedOnce = true; loadFailed = false;
     render();
-  } catch (e) { error = e.message; render(); }
+  } catch (e) {
+    if (loadedOnce) error = e.message; else loadFailed = true;
+    render();
+  }
 }
 function clearMessages() { error = ""; notice = ""; }
 function showError(m) { error = m; notice = ""; render(); }
@@ -395,20 +410,25 @@ function openGoalModal(driverId) {
 function renderMessages() { return `${error ? `<div class="error">${esc(error)}</div>` : ""}${notice ? `<div class="notice">${esc(notice)}</div>` : ""}`; }
 
 function renderProgress() {
-  const p = computeProgress(driverDrives(selectedDriverId).filter(d => !isVoided(d.id, notes)), certById, notes, goalFor(selectedDriverId));
   const g = goalFor(selectedDriverId);
+  const p = computeProgress(driverDrives(selectedDriverId).filter(d => !isVoided(d.id, notes)), certById, notes, g);
+  // Without the driver's goal there is nothing to measure against: show the
+  // certified totals alone rather than the default as if it were theirs.
+  const goalKnown = canEditGoal(selectedDriverId);
+  const whoSees = TENANT.tenantKind === "household" ? "adults" : "the steward";
   return `
     <section class="card stack">
       <div class="head">
         <div>
-          <h2 style="margin-bottom:2px;">Progress ${p.complete ? `<span class="pill good">${glyph("trophy", { accent: "currentColor" })} Goal met</span>` : ""}</h2>
+          <h2 style="margin-bottom:2px;">Progress ${goalKnown && p.complete ? `<span class="pill good">${glyph("trophy", { accent: "currentColor" })} Goal met</span>` : ""}</h2>
           <div class="meta">${p.certifiedCount} certified · ${p.pendingCount} awaiting signature</div>
         </div>
         <div class="actions">
-          ${canEditGoal(selectedDriverId) ? `<button class="btn btn-ghost btn-sm" data-edit-goal="${esc(selectedDriverId)}">Set goal</button>` : ""}
+          ${goalKnown ? `<button class="btn btn-ghost btn-sm" data-edit-goal="${esc(selectedDriverId)}">Set goal</button>` : ""}
           <button class="btn btn-ghost btn-sm" data-export>Export CSV</button>
         </div>
       </div>
+      ${goalKnown ? `
       <div>
         <div class="bar-label"><span>Total supervised</span><span>${fmtDuration(p.total)} / ${fmtDuration(g.total_minutes)}</span></div>
         <div class="progress"><span style="width:${p.totalPct}%"></span></div>
@@ -416,7 +436,10 @@ function renderProgress() {
       <div>
         <div class="bar-label"><span>Night driving</span><span>${fmtDuration(p.night)} / ${fmtDuration(g.night_minutes)}</span></div>
         <div class="progress night"><span style="width:${p.nightPct}%"></span></div>
-      </div>
+      </div>` : `
+      <div class="bar-label"><span>Total supervised</span><span>${fmtDuration(p.total)}</span></div>
+      <div class="bar-label"><span>Night driving</span><span>${fmtDuration(p.night)}</span></div>
+      <div class="meta tiny">${esc(memberName(selectedDriverId))}'s goal is visible to them and to ${whoSees}.</div>`}
     </section>`;
 }
 
@@ -507,6 +530,14 @@ function renderDriveList() {
 function render() {
   const root = document.getElementById("root");
   root.className = "app";
+  if (loadFailed) {
+    root.innerHTML = `
+    <div class="topbar">
+      <div><h1>Driving Practice Log</h1><p class="muted tiny">Supervised hours, countersigned & DMV-ready.</p></div>
+    </div>
+    <div class="load-error" data-testid="load-error" role="alert"><span>Couldn’t load the driving log.</span> <button type="button" class="load-error-retry" data-testid="load-retry">Try again</button></div>`;
+    return;
+  }
   const list = driverDrives(selectedDriverId);
   root.innerHTML = `
     <div class="topbar">
@@ -534,7 +565,7 @@ document.addEventListener("input", (e) => {
 document.addEventListener("click", (event) => {
   const t = event.target.closest("button");
   if (!t) return;
-  if (t.matches("[data-refresh]")) { refresh(); return; }
+  if (t.matches("[data-refresh]") || t.matches('[data-testid="load-retry"]')) { refresh(); return; }
   if (t.matches("[data-export]")) { exportCsv(); return; }
   if (t.hasAttribute("data-edit-goal")) { openGoalModal(t.getAttribute("data-edit-goal")); return; }
   if (t.hasAttribute("data-sign")) { sign(t.getAttribute("data-sign")); return; }
@@ -550,7 +581,7 @@ document.addEventListener("click", (event) => {
 });
 document.addEventListener("change", (event) => {
   const p = event.target.closest("[data-driver-picker]");
-  if (p) { selectedDriverId = p.value; loadGoal(selectedDriverId).then(render); render(); }
+  if (p) { selectedDriverId = p.value; loadGoal(selectedDriverId).then(render, e => showError(e.message)); render(); }
 });
 document.addEventListener("submit", (event) => {
   if (event.target.id !== "log-form") return;

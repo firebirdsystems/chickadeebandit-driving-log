@@ -9,6 +9,22 @@ export function canSupervise(member) {
   return isAdult(member);
 }
 
+/**
+ * Whether a member may read and set another driver's goal. Mirrors the hub's
+ * rule for the goals table (owner_only with adults_bypass): any adult in a
+ * household, and only the steward in a shared space. Anyone else reads and
+ * writes their own goal alone, and a goal saved for another driver would be
+ * stored as their own.
+ */
+export function supervisesGoals(member, { tenantKind = "household", spaceKind = null, isAdmin = false } = {}) {
+  return tenantKind === "household" ? isAdult(member) : isAdmin === true;
+}
+
+/** A driver's goal is theirs to read and set; so may whoever supervises goals. */
+export function canAccessGoal(driverId, member, tenant) {
+  return !!member && !!driverId && (member.id === driverId || supervisesGoals(member, tenant));
+}
+
 // A drive is certified iff its (endpoint-written) certification row is locked.
 export function isCertified(certification) {
   return !!certification && certification.status === "locked";
