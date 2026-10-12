@@ -219,12 +219,18 @@ async function refresh() {
     loadedOnce = true; loadFailed = false;
     render();
   } catch (e) {
-    if (loadedOnce) error = e.message; else loadFailed = true;
+    if (loadedOnce) error = failText(e, "Couldn’t load the driving log."); else loadFailed = true;
     render();
   }
 }
 function clearMessages() { error = ""; notice = ""; }
 function showError(m) { error = m; notice = ""; render(); }
+// A failed request shows one fixed line in this app's words; the hub's own
+// error text (or anything not marked `forUser`) only goes to the console.
+function failText(e, line) {
+  if (!e?.forUser) console.error("[driving-log] request failed:", e);
+  return e?.forUser ? e.message : line;
+}
 function showNotice(m) { notice = m; error = ""; render(); }
 
 // ── log a drive (append-only) + auto-attest as the logger ──
@@ -268,7 +274,7 @@ async function logDrive(form) {
     sendHubNotification({ title: "Drive to countersign", body: `${memberName(driver_id)} logged a ${fmtDuration(minutes)} drive.`, audience: [other], url: hubAppUrl(APP_ID, {}) }).catch(() => {});
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = "Log drive"; }
-    showError(e.message);
+    showError(failText(e, "Couldn’t log the drive — try again."));
   }
 }
 
@@ -294,7 +300,7 @@ async function sign(driveId) {
     } else {
       showNotice("Signed. Waiting on the other party.");
     }
-  } catch (e) { showError(e.message); }
+  } catch (e) { showError(failText(e, "Couldn’t sign the entry — try again.")); }
 }
 
 async function withdraw(driveId) {
@@ -310,7 +316,7 @@ async function withdraw(driveId) {
       certById.set(driveId, { ...cert });
     }
     render();
-  } catch (e) { showError(e.message); }
+  } catch (e) { showError(failText(e, "Couldn’t withdraw your signature — try again.")); }
 }
 
 // ── adult-only immutable annotations ──
@@ -326,7 +332,7 @@ async function submitNote(driveId, body) {
     notes = [...notes, { id: rec.id, drive_id: driveId, kind: "note", body: text, created_by: currentMember.id, created_at: rec.created_at ?? nowIso() }];
     closeModal();
     showNotice("Observation added.");
-  } catch (e) { showError(e.message); }
+  } catch (e) { showError(failText(e, "Couldn’t add the observation — try again.")); }
 }
 async function voidDrive(driveId) {
   if (!canSupervise()) return showError("Only a supervising adult can void an entry.");
@@ -338,7 +344,7 @@ async function voidDrive(driveId) {
     notes = [...notes, { id: rec.id, drive_id: driveId, kind: "void", body: "Voided by supervisor.", created_by: currentMember.id, created_at: rec.created_at ?? nowIso() }];
     render();
     showNotice("Entry voided.");
-  } catch (e) { showError(e.message); }
+  } catch (e) { showError(failText(e, "Couldn’t void the entry — try again.")); }
 }
 
 async function saveGoal(driverId, totalHours, nightHours) {
@@ -356,7 +362,7 @@ async function saveGoal(driverId, totalHours, nightHours) {
     closeModal();
     render();
     showNotice("Goal updated.");
-  } catch (e) { showError(e.message); }
+  } catch (e) { showError(failText(e, "Couldn’t save the goal — try again.")); }
 }
 
 // ── export ──
@@ -581,7 +587,7 @@ document.addEventListener("click", (event) => {
 });
 document.addEventListener("change", (event) => {
   const p = event.target.closest("[data-driver-picker]");
-  if (p) { selectedDriverId = p.value; loadGoal(selectedDriverId).then(render, e => showError(e.message)); render(); }
+  if (p) { selectedDriverId = p.value; loadGoal(selectedDriverId).then(render, e => showError(failText(e, "Couldn’t load the goal."))); render(); }
 });
 document.addEventListener("submit", (event) => {
   if (event.target.id !== "log-form") return;
