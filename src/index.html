@@ -296,9 +296,14 @@ async function sign(driveId) {
     const cert = certById.get(driveId) ?? { id: driveId, driver_id: drive.driver_id, supervisor_id: drive.supervisor_id, driver_attested: 0, supervisor_signed: 0, status: "pending" };
     if (currentMember.id === drive.driver_id) cert.driver_attested = 1;
     if (currentMember.id === drive.supervisor_id) cert.supervisor_signed = 1;
-    const locked = res.status === "locked" || (cert.driver_attested && cert.supervisor_signed);
+    // The hub's answer says whether the entry certified. Still pending with this
+    // signature stored means the other party's is not there (withdrawn since
+    // this screen was read), whatever the row on screen said.
+    const locked = res.status === "locked";
     cert.status = locked ? "locked" : "pending";
     if (locked) cert.locked_at = nowIso();
+    else if (currentMember.id === drive.driver_id) cert.supervisor_signed = 0;
+    else cert.driver_attested = 0;
     certById.set(driveId, { ...cert });
     render();
     if (locked) {
