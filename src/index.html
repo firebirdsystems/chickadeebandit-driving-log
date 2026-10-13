@@ -257,6 +257,9 @@ async function logDrive(form) {
     const drive = { id: rec.id, driver_id, supervisor_id, date, minutes, night_minutes, weather, road, notes: driveNotes, created_by: currentMember.id, created_at: rec.created_at ?? nowIso() };
     drives = [drive, ...drives];
     // Bootstrap the certification row and set the logger's own signature flag.
+    // The drive is already stored: a failed signature is reported as that, and
+    // the entry keeps its Attest / Countersign button to sign again.
+    let signed = true;
     try {
       await agree(drive.id, true);
       certById.set(drive.id, {
@@ -265,10 +268,14 @@ async function logDrive(form) {
         supervisor_signed: currentMember.id === supervisor_id ? 1 : 0,
         status: "pending", locked_at: null,
       });
-    } catch { /* agree is best-effort; the drive is still logged */ }
+    } catch (e) {
+      signed = false;
+      console.error("[driving-log] signature after logging a drive failed:", e);
+    }
     form.reset();
     selectedDriverId = driver_id;
-    showNotice("Drive logged. Awaiting the other signature to certify.");
+    if (signed) showNotice("Drive logged. Awaiting the other signature to certify.");
+    else showError(`Drive logged, but your signature couldn’t be saved — use ${currentMember.id === driver_id ? "Attest" : "Countersign"} on the entry to sign it.`);
     publish("driving-log.logged", drive.id, { driver_id, minutes });
     const other = currentMember.id === driver_id ? supervisor_id : driver_id;
     sendHubNotification({ title: "Drive to countersign", body: `${memberName(driver_id)} logged a ${fmtDuration(minutes)} drive.`, audience: [other], url: hubAppUrl(APP_ID, {}) }).catch(() => {});
