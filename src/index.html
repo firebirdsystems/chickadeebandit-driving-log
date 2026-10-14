@@ -328,7 +328,12 @@ async function withdraw(driveId) {
       certById.set(driveId, { ...cert });
     }
     render();
-  } catch (e) { showError(failText(e, "Couldn’t withdraw your signature — try again.")); }
+  } catch (e) {
+    showError(failText(e, "Couldn’t withdraw your signature — try again."));
+    // A refusal usually means the entry changed (certified since this screen was
+    // read): show what is stored, so a Withdraw that cannot work is not left up.
+    if (DB) await loadData().then(render, () => {});
+  }
 }
 
 // ── adult-only immutable annotations ──
