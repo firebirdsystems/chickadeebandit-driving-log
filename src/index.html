@@ -103,6 +103,7 @@ let goalsByMember = new Map();
 let selectedDriverId = null;
 let searchQ = "";       // in-app search (see logic.js searchableFields)
 let error = "", notice = "";
+let logging = false;    // a drive is being saved: a redraw keeps "Log drive" disabled
 
 function canSupervise() { return _canSupervise(currentMember); }
 function certState(id) { return _certState(id, certById, notes); }
@@ -242,6 +243,7 @@ function showNotice(m) { notice = m; error = ""; render(); }
 
 // ── log a drive (append-only) + auto-attest as the logger ──
 async function logDrive(form) {
+  if (logging) return;
   const driver_id = form.driver_id.value;
   const supervisor_id = form.supervisor_id.value;
   const date = form.date.value;
@@ -259,6 +261,7 @@ async function logDrive(form) {
 
   const btn = form.querySelector('button[type="submit"]');
   if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+  logging = true;
   try {
     const rec = await appendRecord("drives", { driver_id, supervisor_id, date, minutes, night_minutes, weather, road, notes: driveNotes });
     const drive = { id: rec.id, driver_id, supervisor_id, date, minutes, night_minutes, weather, road, notes: driveNotes, created_by: currentMember.id, created_at: rec.created_at ?? nowIso() };
@@ -279,7 +282,9 @@ async function logDrive(form) {
       signed = false;
       console.error("[driving-log] signature after logging a drive failed:", e);
     }
-    form.reset();
+    logging = false;
+    // A redraw during the save replaced the form; reset the one on screen.
+    document.getElementById("log-form")?.reset();
     selectedDriverId = driver_id;
     if (signed) showNotice("Drive logged. Awaiting the other signature to certify.");
     else showError(`Drive logged, but your signature couldn’t be saved — use ${currentMember.id === driver_id ? "Attest" : "Countersign"} on the entry to sign it.`);
@@ -287,6 +292,7 @@ async function logDrive(form) {
     const other = currentMember.id === driver_id ? supervisor_id : driver_id;
     sendHubNotification({ title: "Drive to countersign", body: `${memberName(driver_id)} logged a ${fmtDuration(minutes)} drive.`, audience: [other], url: hubAppUrl(APP_ID, {}) }).catch(() => {});
   } catch (e) {
+    logging = false;
     if (btn) { btn.disabled = false; btn.textContent = "Log drive"; }
     showError(failText(e, "Couldn’t log the drive — try again."));
   }
@@ -548,7 +554,7 @@ function renderLogForm() {
         </div>
         <div class="field"><label for="f-road">Road type</label><select id="f-road" name="road">${ROAD.map(r => `<option value="${r}">${r}</option>`).join("")}</select></div>
         <div class="field"><label for="f-notes">Notes</label><textarea id="f-notes" name="notes" placeholder="Conditions, skills practiced…"></textarea></div>
-        <div class="actions"><button class="btn" type="submit">Log drive</button></div>
+        <div class="actions"><button class="btn" type="submit"${logging ? " disabled" : ""}>${logging ? "Saving…" : "Log drive"}</button></div>
       </form>
     </details>`;
 }
@@ -575,6 +581,7 @@ function render() {
     return;
   }
   const list = driverDrives(selectedDriverId);
+  const restoreLogForm = keepLogForm();
   root.innerHTML = `
     <div class="topbar">
       <div><h1>Driving Practice Log</h1><p class="muted tiny">Supervised hours, countersigned & DMV-ready.</p></div>
@@ -588,6 +595,33 @@ function render() {
       ${list.length ? `<div class="search-row"><input id="search" class="search-input" type="search" placeholder="Search drives…" aria-label="Search drives" value="${esc(searchQ)}" /></div>` : ""}
       <div id="drive-list">${renderDriveList()}</div>
     </section>`;
+  restoreLogForm();
+}
+
+// Every message (an error included) redraws the whole page. The "Log a drive"
+// form keeps what was typed into it, and stays open, across the redraw. Only
+// fields the user changed are carried over, so an untouched form still takes
+// its defaults (the driver picked above it, today's date).
+function keepLogForm() {
+  const form = document.getElementById("log-form");
+  if (!form) return () => {};
+  const open = form.closest("details")?.open === true;
+  const typed = [...form.elements]
+    .filter(el => el.name && (el.tagName === "SELECT" ? el.selectedIndex !== Math.max(0, [...el.options].findIndex(o => o.defaultSelected)) : el.value !== el.defaultValue))
+    .map(el => [el.name, el.value]);
+  return () => {
+    const next = document.getElementById("log-form");
+    if (!next) return;
+    const details = next.closest("details");
+    if (details && open) details.open = true;
+    for (const [name, value] of typed) {
+      const el = next.elements[name];
+      if (!el) continue;
+      // A choice that is no longer offered (the member left) keeps the default.
+      if (el.tagName === "SELECT" && ![...el.options].some(o => o.value === value)) continue;
+      el.value = value;
+    }
+  };
 }
 
 // Re-render only the list on each keystroke so the search box keeps focus.
