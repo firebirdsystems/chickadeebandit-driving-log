@@ -132,25 +132,26 @@ async function dbq(sql, params = []) {
   if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || "Couldn’t reach the hub. Try again.");
   return json;
 }
-// Bumped when a read starts and when a write starts or answers: a read that
-// spans any of those may hold an older snapshot, and is not drawn.
-let dataSeq = 0;
+// readSeq: bumped when a read starts — an older read steps aside for it.
+// writeSeq: bumped when a write starts and when it answers — a read that spans
+// either may hold an older snapshot, so it reads again rather than draw it.
+let readSeq = 0, writeSeq = 0;
 async function appendRecord(name, data) {
   if (!APPEND_URL) return { id: `local-${crypto.randomUUID()}`, created_at: nowIso() };
-  dataSeq++;
+  writeSeq++;
   const res = await fetch(`${APPEND_URL}/${encodeURIComponent(name)}`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-  }).finally(() => { dataSeq++; });
+  }).finally(() => { writeSeq++; });
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || "Could not save record.");
   return json;
 }
 async function agree(id, agreed) {
-  dataSeq++;
+  writeSeq++;
   const res = await fetch(`/run/${APP_ID}/api/agree`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ table: "certifications", id, agreed }),
-  }).finally(() => { dataSeq++; });
+  }).finally(() => { writeSeq++; });
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || "Signature failed.");
   return json;
@@ -195,16 +196,25 @@ function seedDemo() {
 
 async function loadData() {
   if (!DB) { seedDemo(); return; }
-  const seq = ++dataSeq;
-  const [driveRows, certRows, noteRows] = await Promise.all([
-    dbq("SELECT * FROM app_driving_log__drives ORDER BY date DESC"),
-    dbq("SELECT * FROM app_driving_log__certifications"),
-    dbq("SELECT * FROM app_driving_log__notes ORDER BY created_at ASC"),
-  ]);
-  if (seq !== dataSeq) return;
-  drives = driveRows.rows;
-  certById = new Map(certRows.rows.map(c => [c.id, c]));
-  notes = noteRows.rows;
+  const seq = ++readSeq;
+  // A read a write overlapped is read again, not dropped: no later read may
+  // come, and the log would stay as it was (empty, on a first load). After
+  // three overlapped tries the last is drawn anyway (accepted: it can miss a
+  // write still answering, which patches the page itself when it lands).
+  for (let tries = 1; ; tries++) {
+    const writes = writeSeq;
+    const [driveRows, certRows, noteRows] = await Promise.all([
+      dbq("SELECT * FROM app_driving_log__drives ORDER BY date DESC"),
+      dbq("SELECT * FROM app_driving_log__certifications"),
+      dbq("SELECT * FROM app_driving_log__notes ORDER BY created_at ASC"),
+    ]);
+    if (seq !== readSeq) return;   // a newer read draws instead
+    if (writes !== writeSeq && tries < 3) continue;
+    drives = driveRows.rows;
+    certById = new Map(certRows.rows.map(c => [c.id, c]));
+    notes = noteRows.rows;
+    return;
+  }
 }
 async function loadGoal(driverId) {
   if (!DB || !driverId || !canEditGoal(driverId)) return;
