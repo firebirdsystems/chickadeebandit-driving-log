@@ -131,20 +131,25 @@ async function dbq(sql, params = []) {
   if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || "Couldn’t reach the hub. Try again.");
   return json;
 }
+// Bumped when a read starts and when a write starts or answers: a read that
+// spans any of those may hold an older snapshot, and is not drawn.
+let dataSeq = 0;
 async function appendRecord(name, data) {
   if (!APPEND_URL) return { id: `local-${crypto.randomUUID()}`, created_at: nowIso() };
+  dataSeq++;
   const res = await fetch(`${APPEND_URL}/${encodeURIComponent(name)}`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-  });
+  }).finally(() => { dataSeq++; });
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || "Could not save record.");
   return json;
 }
 async function agree(id, agreed) {
+  dataSeq++;
   const res = await fetch(`/run/${APP_ID}/api/agree`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ table: "certifications", id, agreed }),
-  });
+  }).finally(() => { dataSeq++; });
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || "Signature failed.");
   return json;
@@ -189,11 +194,13 @@ function seedDemo() {
 
 async function loadData() {
   if (!DB) { seedDemo(); return; }
+  const seq = ++dataSeq;
   const [driveRows, certRows, noteRows] = await Promise.all([
     dbq("SELECT * FROM app_driving_log__drives ORDER BY date DESC"),
     dbq("SELECT * FROM app_driving_log__certifications"),
     dbq("SELECT * FROM app_driving_log__notes ORDER BY created_at ASC"),
   ]);
+  if (seq !== dataSeq) return;
   drives = driveRows.rows;
   certById = new Map(certRows.rows.map(c => [c.id, c]));
   notes = noteRows.rows;
@@ -332,7 +339,13 @@ async function withdraw(driveId) {
     showError(failText(e, "Couldn’t withdraw your signature — try again."));
     // A refusal usually means the entry changed (certified since this screen was
     // read): show what is stored, so a Withdraw that cannot work is not left up.
-    if (DB) await loadData().then(render, () => {});
+    // Only the totals and the entries are redrawn: the "Log a drive" form may
+    // hold typed input by the time this read answers.
+    if (DB) await loadData().then(() => {
+      const totals = document.querySelector("#root > section.card.stack"), list = document.getElementById("drive-list");
+      if (totals) totals.outerHTML = renderProgress();
+      if (list) list.innerHTML = renderDriveList();
+    }, () => {});
   }
 }
 
