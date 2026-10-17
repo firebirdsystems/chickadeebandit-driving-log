@@ -54,6 +54,9 @@
         "weather": 20,
         "road": 20,
         "notes": 1000
+      },
+      "value_formats": {
+        "date": "date_not_future"
       }
     },
     "notes": {

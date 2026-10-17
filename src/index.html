@@ -555,7 +555,7 @@ function renderLogForm() {
           <div class="field"><label for="f-sup">Supervising adult</label><select id="f-sup" name="supervisor_id" required>${supOpts}</select></div>
         </div>
         <div class="grid two">
-          <div class="field"><label for="f-date">Date</label><input id="f-date" name="date" type="date" value="${today()}" required /></div>
+          <div class="field"><label for="f-date">Date</label><input id="f-date" name="date" type="date" value="${today()}" max="${today()}" required /></div>
           <div class="field"><label for="f-min">Minutes</label><input id="f-min" name="minutes" type="number" min="1" placeholder="60" required /></div>
         </div>
         <div class="grid two">
